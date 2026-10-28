@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Q-FT · Quick File Tools: enhance photos, compress PDFs, trim audio & video</title>
+  <meta name="description" content="Free online file tools that run in your browser: AI photo enhancer, PDF compressor, image compressor & converter, audio and video trimmer. No uploads, no sign-up, no subscription." />
+  <link rel="canonical" href="https://q-ft.github.io/" />
+  <meta name="theme-color" content="#0b1020" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Q-FT · Quick File Tools" />
+  <meta property="og:title" content="Q-FT · Quick File Tools" />
+  <meta property="og:description" content="Enhance photos with AI, compress PDFs, convert images, trim audio and video. Right in your browser: no uploads, no subscription." />
+  <meta property="og:url" content="https://q-ft.github.io/" />
+  <meta property="og:image" content="https://q-ft.github.io/assets/og-qft.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Q-FT logo" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://q-ft.github.io/assets/og-qft.png" />
+  <link rel="icon" href="assets/logo-mark.svg" type="image/svg+xml" />
+  <link rel="icon" href="assets/favicon-64.png" sizes="64x64" type="image/png" />
+  <link rel="apple-touch-icon" href="assets/icon-512.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <div class="bg" aria-hidden="true"><i></i><i></i><i></i><i></i></div><div class="spot" aria-hidden="true"></div>
+  <header class="top">
+    <div class="wrap top__in">
+      <a class="brand" href="#/" aria-label="Q-FT home"><img src="assets/logo-mark.svg" alt="" width="36" height="36" /><span><b>Q-FT</b><small>Quick File Tools</small></span></a>
+      <nav class="nav" aria-label="Main">
+        <a href="#/enhance">Enhance</a><a href="#/pdf">PDF</a><a href="#/images">Images</a><a href="#/audio">Audio</a><a href="#/video">Video</a><a href="#/qr">QR</a><a href="#pricing">Pricing</a>
+      </nav>
+      <button class="credits" id="creditsBadge" type="button" title="AI enhancements left"><span class="credits__dot"></span><span id="creditsText">10 free</span></button>
+    </div>
+  </header>
+
+  <main>
+    <!-- tool view (filled by js/app.js when the URL is #/enhance, #/pdf, ...) -->
+    <section class="tool-view" id="toolView" hidden></section>
+
+    <div id="home">
+      <section class="hero">
+        <div class="wrap">
+          <p class="eyebrow">Private by design · runs on your device</p>
+          <h1><span class="rot" id="rot"><span class="on">Enhance</span><span>Compress</span><span>Convert</span><span>Trim</span></span> any file.<br />No subscription.</h1>
+          <p class="lead">Fast, high quality file tools that run right in your browser. Nothing is uploaded, nothing to install.</p>
+          <div class="hero__ctas"><a class="btn btn--primary btn--lg" href="#/enhance">Enhance a photo, free</a><a class="btn btn--ghost btn--lg" href="#tools">Explore tools</a></div>
+          <ul class="trust"><li>No uploads</li><li>No sign-up</li><li>No watermark</li></ul>
+        </div>
+      </section>
+
+      <section class="wrap section" id="tools">
+        <div class="bento" id="toolGrid"></div>
+      </section>
+
+      <section class="wrap section how">
+        <h2>Three steps. Zero uploads.</h2>
+        <p class="sub">Your device does the work, so your files stay yours.</p>
+        <ol class="steps">
+          <li><b>Pick a tool</b><span>Enhance, compress, convert or trim.</span></li>
+          <li><b>Drop your file</b><span>It's processed by your own device, nothing is uploaded.</span></li>
+          <li><b>Download</b><span>Highest quality output, no watermark.</span></li>
+        </ol>
+      </section>
+
+      <section class="wrap section pricing" id="pricing">
+        <h2>Simple pricing.</h2>
+        <p class="sub">Everything is free except AI enhancement, and even that starts with 10 free photos.</p>
+        <div class="plans">
+          <article class="plan">
+            <h3>Free</h3>
+            <p class="price">$0</p>
+            <ul><li>PDF compression: unlimited</li><li>Image compress &amp; convert: unlimited</li><li>Audio &amp; video trimming: unlimited</li><li>QR codes: unlimited</li><li><b>10 AI photo enhancements</b></li><li>No watermark, no account</li></ul>
+            <a class="btn btn--ghost" href="#/enhance">Start free</a>
+          </article>
+          <article class="plan plan--hot">
+            <span class="tag">Pay as you go</span>
+            <h3>Enhancement pack</h3>
+            <p class="price">$5 <small>/ 20 photos</small></p>
+            <ul><li>20 more AI photo enhancements</li><li>Buy another pack whenever you need more</li><li>Credits never expire</li><li>One-time payment, never a subscription</li></ul>
+            <button class="btn btn--primary" type="button" data-buy>Get 20 enhancements</button>
+          </article>
+        </div>
+      </section>
+
+      <section class="wrap section faq">
+        <h2>Questions, answered</h2>
+        <details><summary>Are my files uploaded anywhere?</summary><p>No. Every tool runs inside your browser on your own device. Your photos, PDFs and videos are never sent to a server, so they stay private.</p></details>
+        <details><summary>Why is AI enhancement limited when the other tools are free?</summary><p>You get 10 free enhancements. After that, packs are $5 for 20 photos. It's a one-time payment that keeps Q-FT running, not a subscription.</p></details>
+        <details><summary>What does "Enhance" do?</summary><p>It uses Real-ESRGAN, an AI model trained to restore detail: it upscales your photo 2× or 4× while removing blur, noise and compression artifacts. Great for old, small or blurry photos.</p></details>
+        <details><summary>Will compressing a PDF keep the text sharp?</summary><p>Yes. Q-FT only recompresses the pictures inside the PDF and tidies up its structure. Text and drawings stay crisp and selectable.</p></details>
+        <details><summary>Is trimming video lossless?</summary><p>In "Fast" mode, yes: the clip is cut without re-encoding, so there's zero quality loss (the cut lands on the nearest keyframe). "Precise" mode cuts on the exact frame and re-encodes at high quality.</p></details>
+        <details><summary>It's slow on my computer. Why?</summary><p>All the work happens on your device. AI enhancement uses your graphics card when the browser supports it (Chrome, Edge, recent Safari) and is much slower without it. Big videos also take longer.</p></details>
+      </section>
+    </div>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap foot__in">
+      <div><a class="brand" href="#/"><img src="assets/logo-mark.svg" alt="" width="28" height="28" /><span><b>Q-FT</b><small>Quick File Tools</small></span></a><p class="muted">Made by Freeman T.</p></div>
+      <div class="muted small">
+        <a href="terms.html">Terms</a> · <a href="privacy.html">Privacy</a> · <a href="#credits" id="creditsLink">Open-source credits</a>
+        <p id="ossCredits" hidden>AI model: Real-ESRGAN (BSD-3-Clause, X. Wang et al.). Runtime: ONNX Runtime Web (MIT). Video &amp; audio: ffmpeg.wasm (MIT) with FFmpeg (LGPL/GPL). PDF: pdf-lib (MIT), pako (MIT). Zip: fflate (MIT).</p>
+      </div>
+    </div>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <dialog class="paywall" id="paywall">
+    <form method="dialog" class="paywall__in">
+      <img src="assets/logo-mark.svg" alt="" width="56" height="56" />
+      <h2>You've used your free enhancements</h2>
+      <p>Get <b>20 more for $5</b>. One-time payment, credits never expire, no subscription.</p>
+      <button class="btn btn--primary btn--lg" type="button" data-buy>Get 20 enhancements · $5</button>
+      <p class="muted small" id="payNote"></p>
+      <button class="btn btn--ghost" value="close">Not now</button>
+    </form>
+  </dialog>
+</body>
+</html>

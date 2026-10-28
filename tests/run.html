@@ -1,0 +1,103 @@
+<!DOCTYPE html><meta charset="utf-8"><title>Q-FT tests</title>
+<body style="margin:0"><iframe id="f" style="width:1200px;height:900px;border:0"></iframe>
+<script type="module">
+// End-to-end checks: drive each tool through its real UI in an iframe and POST a report to /log.
+// ?only=enhance,pdf,images,audio,video
+import { PDFDocument, StandardFonts } from "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.esm.min.js";
+const only = (new URLSearchParams(location.search).get("only") || "enhance,pdf,images,audio,video").split(",");
+const f = document.getElementById("f"), log = [];
+const say = (m) => { log.push(m); console.log(m); };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+async function waitFor(fn, ms, what) { const t = Date.now(); while (Date.now() - t < ms) { const v = fn(); if (v) return v; await sleep(250); } throw new Error(`timeout: ${what}`); }
+async function open(hash) { f.src = `../index.html?t=${Date.now()}${hash}`; await new Promise((r) => (f.onload = r)); await sleep(300); return f.contentDocument; }
+function give(doc, files) { const inp = doc.querySelector("#toolView input[type=file]"); const dt = new DataTransfer(); files.forEach((x) => dt.items.add(x)); inp.files = dt.files; inp.dispatchEvent(new Event("change")); }
+const canvasFile = (w, h, type, name, q = 0.95) => { const c = Object.assign(document.createElement("canvas"), { width: w, height: h }), g = c.getContext("2d");
+  const gr = g.createLinearGradient(0, 0, w, h); gr.addColorStop(0, "#e53"); gr.addColorStop(1, "#38f"); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 400; i++) { g.fillStyle = `hsl(${i * 37 % 360} 70% ${30 + (i * 13) % 50}%)`; g.beginPath(); g.arc((i * 97) % w, (i * 61) % h, 3 + (i % 9) * w / 300, 0, 7); g.fill(); }
+  g.fillStyle = "#fff"; g.font = `bold ${Math.round(h / 6)}px sans-serif`; g.fillText("Q-FT test", w * 0.08, h * 0.55);
+  return new Promise((r) => c.toBlob((b) => r(new File([b], name, { type })), type, q)); };
+const metaText = (doc) => [...doc.querySelectorAll("#toolView .job__meta")].map((m) => m.textContent).join(" | ");
+
+function wav(sec, rate = 44100) { const n = sec * rate, b = new ArrayBuffer(44 + n * 2), v = new DataView(b); const w = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  w(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.sin(i / rate * 2 * Math.PI * 440) * 12000 * (i / n), true); return new File([b], "tone.wav", { type: "audio/wav" }); }
+
+async function trimTest(doc, mode, outLabel) {
+  if (mode) [...doc.querySelectorAll("#toolView .seg button")].find((b) => b.textContent.startsWith(mode))?.click();
+  if (outLabel) [...doc.querySelectorAll("#toolView .seg button")].find((b) => b.textContent.startsWith(outLabel))?.click();
+  const s = doc.querySelector('[data-t="s"]'), e = doc.querySelector('[data-t="e"]');
+  s.value = "0:01.00"; s.dispatchEvent(new Event("change")); e.value = "0:03.00"; e.dispatchEvent(new Event("change"));
+  f.contentWindow.__dl = []; const orig = f.contentWindow.HTMLAnchorElement.prototype.click;
+  f.contentWindow.HTMLAnchorElement.prototype.click = function () { if (this.download) f.contentWindow.__dl.push(this.download); else orig.call(this); };
+  doc.querySelector("[data-go]").click();
+  await waitFor(() => doc.querySelector("[data-result] .ok") || null, 240000, "trim result");
+  return doc.querySelector("[data-result] .job__meta").textContent + " · " + doc.querySelector("[data-result] .job__name").textContent;
+}
+
+try {
+  if (only.includes("enhance")) {
+    const doc = await open("#/enhance");
+    await waitFor(() => doc.querySelector("#toolView input[type=file]"), 10000, "enhance ui");
+    const t = Date.now();
+    give(doc, [await canvasFile(96, 72, "image/jpeg", "small.jpg", 0.6), await canvasFile(140, 100, "image/png", "small.png")]);
+    await waitFor(() => doc.querySelectorAll("#toolView .job__meta .ok").length === 2 || doc.querySelector("#toolView .job__meta .bad"), 300000, "enhance");
+    say(`ENHANCE ${((Date.now() - t) / 1000).toFixed(1)}s: ${metaText(doc)}`);
+    say(`ENHANCE status/credits: ${doc.querySelector("#creditsText").textContent} · compare=${!!doc.querySelector(".compare img")}`);
+    const img = doc.querySelector(".compare img"); await new Promise((r) => (img.complete ? r() : (img.onload = r)));
+    say(`ENHANCE output pixels ${img.naturalWidth}x${img.naturalHeight}`);
+  }
+  if (only.includes("pdf")) {
+    const pdf = await PDFDocument.create(); const font = await pdf.embedFont(StandardFonts.Helvetica);
+    for (let i = 0; i < 3; i++) { const jpg = await (await canvasFile(2400, 1800, "image/jpeg", "p.jpg", 0.97)).arrayBuffer(); const im = await pdf.embedJpg(jpg); const p = pdf.addPage([612, 792]); p.drawImage(im, { x: 50, y: 300, width: 512, height: 384 }); p.drawText(`Page ${i + 1}: text must stay selectable`, { x: 50, y: 720, size: 18, font }); }
+    const bytes = await pdf.save({ useObjectStreams: false });
+    const doc = await open("#/pdf"); await waitFor(() => doc.querySelector("#toolView input[type=file]"), 10000, "pdf ui");
+    give(doc, [new File([bytes], "report.pdf", { type: "application/pdf" })]);
+    await waitFor(() => doc.querySelector("#toolView .job__meta .ok, #toolView .job__meta .bad") || /optimized/.test(metaText(doc)), 120000, "pdf");
+    say(`PDF: ${metaText(doc)}`);
+    // the compressed file must still open and keep its text
+    const mod = await import("/js/pdf.js");
+    const out = await mod.compressPdf(new Uint8Array(bytes), "balanced");
+    const re = await PDFDocument.load(out.bytes); say(`PDF reopen: ${re.getPageCount()} pages, images ${out.changed}/${out.images} recompressed, ${bytes.length} -> ${out.bytes.length} bytes`);
+  }
+  if (only.includes("images")) {
+    const doc = await open("#/images"); await waitFor(() => doc.querySelector("#toolView input[type=file]"), 10000, "images ui");
+    [...doc.querySelectorAll("#toolView .seg button")].find((b) => b.textContent === "WebP").click();
+    give(doc, [await canvasFile(3000, 2000, "image/png", "big.png"), await canvasFile(1600, 1200, "image/jpeg", "photo.jpg", 0.98)]);
+    await waitFor(() => doc.querySelectorAll("#toolView .job__act button").length === 2, 60000, "images");
+    say(`IMAGES: ${metaText(doc)}`);
+  }
+  if (only.includes("audio")) {
+    const doc = await open("#/audio"); await waitFor(() => doc.querySelector("#toolView input[type=file]"), 10000, "audio ui");
+    give(doc, [wav(5)]);
+    await waitFor(() => !doc.querySelector("#toolView .drop").hidden || null, 10000, "audio editor");
+    say(`AUDIO copy: ${await trimTest(doc)}`);
+    doc.querySelector("#toolView .check input").click();
+    say(`AUDIO mp3+fade: ${await trimTest(doc, null, "MP3")}`);
+  }
+  if (only.includes("video")) {
+    const { FFmpeg } = await import("../vendor/ffmpeg/index.js"); const { toBlobURL } = await import("../vendor/ffmpeg-util/index.js");
+    const ff = new FFmpeg(); const base = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/";
+    await ff.load({ coreURL: await toBlobURL(base + "ffmpeg-core.js", "text/javascript"), wasmURL: await toBlobURL(base + "ffmpeg-core.wasm", "application/wasm") });
+    await ff.exec(["-f", "lavfi", "-i", "testsrc=duration=5:size=320x240:rate=25", "-f", "lavfi", "-i", "sine=frequency=440:duration=5", "-c:v", "libx264", "-g", "25", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", "t.mp4"]);
+    const mp4 = new File([await ff.readFile("t.mp4")], "clip.mp4", { type: "video/mp4" }); ff.terminate();
+    say(`VIDEO test clip ${mp4.size} bytes`);
+    const doc = await open("#/video"); await waitFor(() => doc.querySelector("#toolView input[type=file]"), 10000, "video ui");
+    give(doc, [mp4]); await waitFor(() => !doc.querySelector("#toolView .drop").hidden || null, 15000, "video editor");
+    say(`VIDEO fast: ${await trimTest(doc)}`);
+    say(`VIDEO precise: ${await trimTest(doc, "Precise")}`);
+    say(`VIDEO gif: ${await trimTest(doc, null, "GIF")}`);
+    say(`VIDEO mp3: ${await trimTest(doc, null, "Audio only")}`);
+  }
+  if (only.includes("qr")) {
+    const doc = await open("#/qr"); await waitFor(() => doc.querySelector("#toolView [data-k=url]"), 10000, "qr ui");
+    const i = doc.querySelector("[data-k=url]"); i.value = "churo-car-rentals.github.io"; i.dispatchEvent(new Event("input"));
+    doc.querySelector("#toolView .check input").click();
+    [...doc.querySelectorAll("#toolView .seg button")].find((b) => b.textContent === "Dots").click();
+    await sleep(2500);
+    const c = doc.querySelector(".qr__img canvas"); say(`QR canvas ${c?.width}x${c?.height}`);
+    window.__qr = c.toDataURL("image/png");
+  }
+} catch (e) { say(`FAIL ${e.message}\n${e.stack}`); }
+await fetch("/log", { method: "POST", body: log.join("\n") + (window.__qr ? "\nQRDATA " + window.__qr : "") });
+document.title = "done";
+</script>

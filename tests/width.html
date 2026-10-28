@@ -1,0 +1,14 @@
+<!DOCTYPE html><meta charset="utf-8"><body style="margin:0">
+<script>
+// Load the site in phone-sized iframes and report any horizontal overflow.
+const sizes = [320, 360, 390, 430], out = [];
+(async () => {
+  for (const w of sizes) for (const h of ["", "#/enhance", "#/qr", "#/video"]) {
+    const f = Object.assign(document.createElement("iframe"), { src: `../index.html?w=${w}${h}`, style: `width:${w}px;height:800px;border:0` });
+    document.body.appendChild(f); await new Promise((r) => (f.onload = r)); await new Promise((r) => setTimeout(r, 1200));
+    const d = f.contentDocument.documentElement, wide = [...f.contentDocument.querySelectorAll("body *")].filter((e) => e.getBoundingClientRect().right > w + 1 && !e.closest(".bg,.spot")).slice(0, 4).map((e) => e.className || e.tagName);
+    out.push(`${w}px ${h || "home"}: scrollWidth=${d.scrollWidth} ${wide.length ? "OVERFLOW " + wide.join(", ") : "ok"}`); f.remove();
+  }
+  await fetch("/log", { method: "POST", body: out.join("\n") });
+})();
+</script>
