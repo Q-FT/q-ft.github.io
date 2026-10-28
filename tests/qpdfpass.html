@@ -1,0 +1,13 @@
+<!DOCTYPE html><meta charset="utf-8"><script type="module">
+// How much does a qpdf structure pass add, on its own and after pdf-lib?
+import { runQpdf } from "/js/pdftools.js"; import { compressPdf } from "/js/pdf.js";
+const out = []; try {
+for (const n of ["text.pdf", "photos.pdf"]) {
+  const b = new Uint8Array(await (await fetch(`/tests/${n}`)).arrayBuffer());
+  const args = ["IN", "--object-streams=generate", "--compress-streams=y", "--recompress-flate", "--compression-level=9", "OUT"];
+  const q = await runQpdf(b, args); const lib = (await compressPdf(b, "balanced")).bytes; const both = await runQpdf(lib, args);
+  out.push(`${n}: orig ${b.length} · qpdf ${q.length} · pdf-lib ${lib.length} · pdf-lib+qpdf ${both.length}`);
+}
+} catch (e) { out.push("ERR " + e.message + " " + (e.logs || []).join(" ")); }
+await fetch("/log", { method: "POST", body: out.join("\n") });
+</script>

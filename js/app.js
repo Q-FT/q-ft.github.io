@@ -2,7 +2,7 @@
 import { $, esc } from "./ui.js";
 import { onCreditsChange, label, openPaywall, buy } from "./credits.js";
 
-import { TOOLS, CATS, icon } from "./catalog.js";
+import { TOOLS, CATS, MENUS, icon } from "./catalog.js";
 
 // little landscape used for the animated before/after in the Enhancer card
 const SCENE = `<svg viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="sk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#312e81"/><stop offset=".55" stop-color="#c026d3"/><stop offset="1" stop-color="#fb923c"/></linearGradient><linearGradient id="lk" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7c2d12"/><stop offset="1" stop-color="#1e1b4b"/></linearGradient></defs>
@@ -37,6 +37,30 @@ function renderAll() {
 $("#cats").addEventListener("click", (e) => { const b = e.target.closest("[data-cat]"); if (!b) return; cat = b.dataset.cat; query = ""; $("#toolSearch").value = ""; document.querySelectorAll("#cats .chip").forEach((x) => x.classList.toggle("on", x === b)); renderAll(); });
 $("#toolSearch").addEventListener("input", (e) => { query = e.target.value; renderAll(); });
 renderAll();
+
+// header menus: hover (or tap) a category to see its tools
+const byId = Object.fromEntries(TOOLS.map((t) => [t.id, t]));
+const menuItem = (id) => { const t = byId[id]; return t ? `<a class="mi" href="#/${t.id}" style="--a1:${t.a[0]};--a2:${t.a[1]}"><span class="mi__icon">${icon(t.icon)}</span><span><b>${esc(t.name)}</b><small>${esc(t.short)}</small></span></a>` : ""; };
+document.querySelectorAll(".dd").forEach((dd) => {
+  const groups = MENUS[dd.dataset.menu], soon = TOOLS.filter((t) => t.soon && (t.cat === dd.dataset.menu || (dd.dataset.menu === "image" && t.cat === "ai")));
+  dd.querySelector(".dd__panel").innerHTML = `<div class="dd__cols" style="--cols:${groups.length}">${groups.map(([g, ids]) => `<div><p class="dd__h">${g}</p>${ids.map(menuItem).join("")}</div>`).join("")}</div>${soon.length ? `<p class="dd__soon">Coming soon: ${soon.map((t) => esc(t.name)).join(" · ")}</p>` : ""}`;
+  const link = dd.querySelector("a[data-cat]");
+  link.addEventListener("click", (e) => { // touch screens: first tap opens the menu
+    if (matchMedia("(hover: none)").matches && !dd.classList.contains("open")) { e.preventDefault(); document.querySelectorAll(".dd.open").forEach((x) => x.classList.remove("open")); dd.classList.add("open"); return; }
+    showCat(link.dataset.cat);
+  });
+});
+document.addEventListener("click", (e) => { if (!e.target.closest(".dd")) document.querySelectorAll(".dd.open").forEach((x) => x.classList.remove("open")); if (e.target.closest(".mi")) document.querySelectorAll(".dd.open").forEach((x) => x.classList.remove("open")); });
+function showCat(c) { setTimeout(() => { document.querySelector(`#cats [data-cat="${c}"]`)?.click(); document.getElementById("all")?.scrollIntoView({ behavior: "smooth" }); }, 50); }
+
+// phone menu
+const sheet = $("#sheet"), burger = $("#burger");
+document.body.appendChild(sheet); // outside the header: its backdrop blur would trap a fixed panel
+sheet.querySelector(".sheet__in").innerHTML = `<a class="mi" href="#/enhance" style="--a1:#8b5cf6;--a2:#22d3ee"><span class="mi__icon">${icon("spark")}</span><span><b>AI Photo Enhancer</b><small>10 free photos</small></span></a>` +
+  Object.entries(MENUS).map(([k, groups]) => `<details><summary>${{ pdf: "PDF tools", image: "Image tools", av: "Audio & video tools" }[k]}</summary>${groups.map(([g, ids]) => `<p class="dd__h">${g}</p>${ids.map(menuItem).join("")}`).join("")}</details>`).join("") +
+  `<div class="sheet__links"><a href="#all">All tools</a><a href="#pricing">Pricing</a></div>`;
+burger.addEventListener("click", () => { const open = sheet.hidden; sheet.hidden = !open; burger.setAttribute("aria-expanded", String(open)); document.body.classList.toggle("noscroll", open); });
+sheet.addEventListener("click", (e) => { if (e.target.closest("a")) { sheet.hidden = true; burger.setAttribute("aria-expanded", "false"); document.body.classList.remove("noscroll"); } });
 
 // card glow follows the pointer; a soft spotlight follows it across the page
 document.addEventListener("pointermove", (e) => {

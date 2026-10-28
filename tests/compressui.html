@@ -1,0 +1,11 @@
+<!DOCTYPE html><meta charset="utf-8"><body style="margin:0"><iframe id="f" style="width:100vw;height:100vh;border:0"></iframe>
+<script type="module">
+// Compress PDF page with a real file loaded and the Recommended preview open (for screenshots).
+const f = document.getElementById("f"), sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+f.src = "../index.html#/pdf"; await new Promise((r) => (f.onload = r)); await sleep(800);
+const d = f.contentDocument, inp = d.querySelector("#toolView input[type=file]"), dt = new DataTransfer();
+dt.items.add(new File([await (await fetch(`/tests/${new URLSearchParams(location.search).get("f") || "photos.pdf"}`)).blob()], "site-photos.pdf", { type: "application/pdf" })); inp.files = dt.files; inp.dispatchEvent(new Event("change"));
+for (let i = 0; i < 100 && d.querySelectorAll(".lvl__size").length < 3; i++) await sleep(200);
+[...d.querySelectorAll(".lvl")][1]?.querySelector("button")?.click(); await sleep(2500);
+f.contentWindow.scrollTo(0, 120);
+</script>

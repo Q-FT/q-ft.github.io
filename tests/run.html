@@ -63,7 +63,7 @@ try {
     const doc = await open("#/images"); await waitFor(() => doc.querySelector("#toolView input[type=file]"), 10000, "images ui");
     [...doc.querySelectorAll("#toolView .seg button")].find((b) => b.textContent === "WebP").click();
     give(doc, [await canvasFile(3000, 2000, "image/png", "big.png"), await canvasFile(1600, 1200, "image/jpeg", "photo.jpg", 0.98)]);
-    await waitFor(() => doc.querySelectorAll("#toolView .job__act button").length === 2, 60000, "images");
+    await waitFor(() => doc.querySelectorAll("#toolView .job__act button").length === 4, 60000, "images");
     say(`IMAGES: ${metaText(doc)}`);
   }
   if (only.includes("audio")) {

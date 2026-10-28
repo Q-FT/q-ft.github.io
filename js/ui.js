@@ -109,3 +109,20 @@ export function button(label, cls = "btn btn--ghost btn--sm", onClick) {
   if (onClick) b.addEventListener("click", onClick);
   return b;
 }
+
+/** Before/after slider. `before`/`after` are canvases or image URLs of the same aspect ratio. */
+export function compareView(container, before, after, labels = ["Before", "After"]) {
+  const node = (x) => (typeof x === "string" ? Object.assign(document.createElement("img"), { src: x, alt: "" }) : x);
+  const box = document.createElement("div"); box.className = "compare";
+  const b = document.createElement("div"); b.className = "compare__before";
+  const line = document.createElement("div"); line.className = "compare__line";
+  const a = node(after), bn = node(before);
+  b.append(bn); box.append(a, b, line);
+  box.insertAdjacentHTML("beforeend", `<span class="compare__lab compare__lab--l">${esc(labels[0])}</span><span class="compare__lab compare__lab--r">${esc(labels[1])}</span>`);
+  container.append(box, Object.assign(document.createElement("p"), { className: "hint", textContent: "Drag across to compare. Zoom in (pinch or Ctrl +) to inspect fine detail." }));
+  const set = (x) => { const r = box.getBoundingClientRect(); const p = Math.min(1, Math.max(0, (x - r.left) / r.width)); b.style.clipPath = `inset(0 ${100 - p * 100}% 0 0)`; line.style.left = `${p * 100}%`; };
+  requestAnimationFrame(() => { const r = box.getBoundingClientRect(); set(r.left + r.width / 2); });
+  box.addEventListener("pointermove", (e) => { if (e.buttons || e.pointerType === "mouse") set(e.clientX); });
+  box.addEventListener("pointerdown", (e) => set(e.clientX));
+  return box;
+}

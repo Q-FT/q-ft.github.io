@@ -1,14 +1,16 @@
 // Compress PDF: recompress the pictures inside the PDF (text and vector drawings untouched), deflate
 // uncompressed streams, and repack the file with object streams. Runs fully in the browser with pdf-lib.
 import { CDN } from "./config.js";
-import { esc, fmtBytes, baseName, dropzone, segmented, opt, jobRow, button, download, downloadZip } from "./ui.js";
+import { esc, fmtBytes, baseName, dropzone, button, download, downloadZip, compareView, toast } from "./ui.js";
+import { encodeJpeg } from "./codecs.js";
 
 // keep: only swap a picture when the new one is at most this fraction of the old size
+// Pictures are re-encoded with MozJPEG (better quality per byte than the browser's JPEG encoder).
 const LEVELS = {
-  light: { maxDim: 2400, q: 0.8, keep: 0.95, label: "Light" },
-  balanced: { maxDim: 1600, q: 0.62, keep: 0.97, label: "Recommended" },
-  strong: { maxDim: 1050, q: 0.42, keep: 0.99, label: "Strong" },
-  extreme: { dpi: 96, q: 0.5, label: "Extreme" },
+  light: { maxDim: 2600, q: 86, keep: 0.95, label: "Light", sub: "Best quality, print ready" },
+  balanced: { maxDim: 1700, q: 72, keep: 0.97, label: "Recommended", sub: "Sharp on any screen" },
+  strong: { maxDim: 1150, q: 55, keep: 0.99, label: "Strong", sub: "Smallest, still readable" },
+  extreme: { dpi: 110, q: 55, label: "Extreme", sub: "Pages become images: text can't be selected" },
 };
 
 let libsP;
@@ -31,7 +33,6 @@ function unpredict(data, colors, columns, bpc = 8) {
   return out;
 }
 
-const toBlob = (c, q) => new Promise((res, rej) => c.toBlob((b) => (b ? res(b) : rej(new Error("encode"))), "image/jpeg", q));
 
 export async function compressPdf(bytes, levelKey, onProgress = () => {}) {
   const { PDFDocument, PDFName, PDFRawStream, PDFNumber, PDFArray, PDFDict, PDFBool, pako } = await libs();
@@ -115,7 +116,7 @@ export async function compressPdf(bytes, levelKey, onProgress = () => {}) {
       const nw = Math.max(1, Math.round(w * k)), nh = Math.max(1, Math.round(h * k));
       const c = Object.assign(document.createElement("canvas"), { width: nw, height: nh }), g = c.getContext("2d");
       g.fillStyle = "#fff"; g.fillRect(0, 0, nw, nh); g.imageSmoothingQuality = "high"; g.drawImage(source, 0, 0, nw, nh); source.close?.();
-      const jpg = new Uint8Array(await (await toBlob(c, level.q)).arrayBuffer());
+      const jpg = new Uint8Array(await (await encodeJpeg(c, level.q)).arrayBuffer());
       if (jpg.length > raw.length * level.keep) continue; // not worth it: keep the original picture
       const nd = d.clone(ctx);
       for (const key of ["Filter", "DecodeParms", "Decode", "Length", "BitsPerComponent", "ColorSpace", "Width", "Height"]) nd.delete(N(key));
@@ -134,47 +135,66 @@ export async function compressPdf(bytes, levelKey, onProgress = () => {}) {
     const nd = obj.dict.clone(ctx); nd.set(N("Filter"), N("FlateDecode")); nd.set(N("Length"), PDFNumber.of(z.length));
     ctx.assign(ref, PDFRawStream.of(nd, z));
   }
-  onProgress(0.95);
-  const out = await doc.save({ useObjectStreams: true, addDefaultPage: false, updateFieldAppearances: false });
+  onProgress(0.9);
+  let out = await doc.save({ useObjectStreams: true, addDefaultPage: false, updateFieldAppearances: false });
+  // last pass with qpdf: recompress every stream at maximum level, pack objects tighter
+  try {
+    const { runQpdf } = await import("./pdftools.js");
+    const q = await runQpdf(out, ["IN", "--object-streams=generate", "--compress-streams=y", "--recompress-flate", "--compression-level=9", "OUT"]);
+    if (q.length < out.length) out = q;
+  } catch (e) { console.warn("qpdf pass skipped", e); }
   onProgress(1);
-  return { bytes: out.length < bytes.length ? out : bytes, images: images.length, changed, skipped, smaller: out.length < bytes.length };
+  const fonts = doc.context.enumerateIndirectObjects().filter(([, o]) => o instanceof PDFRawStream && (o.dict.get(N("Length1")) || o.dict.get(N("Length2")) || /Type1C|CIDFontType0C|OpenType/.test(String(o.dict.get(N("Subtype")))))).reduce((a, [, o]) => a + o.getContents().length, 0);
+  return { bytes: out.length < bytes.length ? out : bytes, images: images.length, changed, skipped, fonts, pages: doc.getPageCount(), smaller: out.length < bytes.length };
 }
 
 export function mount(panel) {
-  let level = "balanced";
-  const results = [];
-  const opts = document.createElement("div"); opts.className = "opts";
-  opts.append(opt("Compression", segmented(Object.entries(LEVELS).map(([k, v]) => [k, v.label]), level, (v) => (level = v))));
-  const hint = document.createElement("p"); hint.className = "hint";
-  hint.textContent = "Light, Recommended and Strong shrink the pictures and keep text crisp and selectable. Extreme turns every page into an image: the smallest file, but text can no longer be selected or searched.";
+  const intro = document.createElement("p"); intro.className = "hint";
+  intro.innerHTML = "Every level is computed so you can compare real sizes and preview the quality before downloading. Levels change how much the <b>pictures</b> inside the PDF are compressed; text and drawings always stay sharp and selectable.";
   const jobs = document.createElement("div"); jobs.className = "jobs";
+  panel.append(dropzone({ accept: "application/pdf,.pdf", multiple: true, title: "Drop PDFs here or click to choose", sub: "Files stay on your device", onFiles: add }), intro, jobs);
+  const picks = []; let chain = Promise.resolve();
   const tail = document.createElement("div"); tail.className = "row-end"; tail.hidden = true;
-  tail.append(button("Download all (.zip)", "btn btn--primary", () => downloadZip(results, "q-ft-compressed-pdfs.zip")));
-  panel.append(dropzone({ accept: "application/pdf,.pdf", multiple: true, title: "Drop PDFs here or click to choose", sub: "Files stay on your device", onFiles: add }), opts, hint, jobs, tail);
+  tail.append(button("Download all chosen (.zip)", "btn btn--primary", () => downloadZip(picks.filter(Boolean).map((p) => p()), "q-ft-compressed-pdfs.zip")));
+  panel.append(tail);
 
-  let chain = Promise.resolve();
-  function add(files) {
-    for (const f of files) {
-      const row = jobRow(f.name, "PDF"); row.meta(`${fmtBytes(f.size)} · waiting`); row.progress(0); jobs.appendChild(row.el);
-      const lv = level;
-      chain = chain.then(() => run(f, row, lv));
-    }
-  }
-  async function run(f, row, lv) {
+  function add(files) { for (const f of files) { const card = document.createElement("div"); card.className = "pdfcard"; jobs.appendChild(card); const i = picks.push(null) - 1; chain = chain.then(() => run(f, card, i)); } }
+
+  async function run(f, card, idx) {
+    const bytes = new Uint8Array(await f.arrayBuffer()), name = `${baseName(f.name)}_compressed.pdf`;
+    card.innerHTML = `<div class="pdfcard__head"><div class="job__thumb">PDF</div><div><div class="job__name">${esc(f.name)}</div><div class="job__meta">${fmtBytes(f.size)} · analyzing…</div><div class="bar"><i></i></div></div></div><div class="levels"></div><div class="pdfcard__preview"></div>`;
+    const meta = card.querySelector(".job__meta"), bar = card.querySelector(".bar i"), grid = card.querySelector(".levels"), prev = card.querySelector(".pdfcard__preview");
+    const res = {}; let chosen = null;
+    const tile = (k) => {
+      const L = LEVELS[k], r = res[k], t = document.createElement("div"); t.className = `lvl${k === chosen ? " on" : ""}`;
+      if (!r) { t.innerHTML = `<b>${L.label}</b><small>${L.sub}</small>`; t.append(button("Try it", "btn btn--ghost btn--sm", async () => { t.innerHTML = `<b>${L.label}</b><small>Working…</small>`; await compute(k); draw(); })); return t; }
+      const saved = Math.max(0, 1 - r.bytes.length / bytes.length);
+      t.innerHTML = `<b>${L.label}</b><span class="lvl__size">${fmtBytes(r.bytes.length)}</span><span class="lvl__pct ${saved > 0.01 ? "ok" : ""}">${saved > 0.01 ? `${Math.round(saved * 100)}% smaller` : "no gain"}</span><small>${L.sub}</small>`;
+      const row = document.createElement("div"); row.className = "lvl__btns";
+      row.append(button("Preview", "btn btn--ghost btn--sm", () => preview(k)), button("Download", "btn btn--primary btn--sm", () => download(new Blob([r.bytes], { type: "application/pdf" }), name)));
+      t.append(row); t.addEventListener("click", (e) => { if (e.target.closest("button")) return; chosen = k; picks[idx] = () => ({ name, blob: new Blob([res[k].bytes], { type: "application/pdf" }) }); draw(); });
+      return t;
+    };
+    const draw = () => { grid.replaceChildren(...Object.keys(LEVELS).map(tile)); };
+    async function compute(k) { res[k] = await compressPdf(bytes, k, (p) => (bar.style.width = `${Math.round(p * 100)}%`)); }
     try {
-      row.meta(`${fmtBytes(f.size)} · compressing…`);
-      const bytes = new Uint8Array(await f.arrayBuffer());
-      const r = await compressPdf(bytes, lv, (p) => row.progress(p));
-      row.progress(null);
-      const blob = new Blob([r.bytes], { type: "application/pdf" }), name = `${baseName(f.name)}_compressed.pdf`;
-      const saved = 1 - r.bytes.length / bytes.length;
-      const detail = r.flattened ? "pages flattened to images" : r.images ? `${r.changed} of ${r.images} pictures shrunk` : "no pictures inside, structure optimized";
-      row.meta(r.smaller && saved > 0.005
-        ? `${fmtBytes(f.size)} → <b>${fmtBytes(blob.size)}</b> · <span class="ok">${Math.round(saved * 100)}% smaller</span> · ${LEVELS[lv].label} · ${detail}`
-        : `${fmtBytes(f.size)} · already well optimized (${detail})${lv !== "extreme" ? ". Try Extreme for the smallest file." : ""}`);
-      results.push({ name, blob });
-      row.actions(button("Download", "btn btn--primary btn--sm", () => download(blob, name)));
-      tail.hidden = results.length < 2;
-    } catch (e) { console.error(e); row.progress(null); row.meta(`<span class="bad">${esc(e.message)}</span>`); }
+      for (const k of ["balanced", "light", "strong"]) { meta.textContent = `${fmtBytes(f.size)} · computing ${LEVELS[k].label}…`; await compute(k); }
+      const r = res.balanced; card.querySelector(".bar").hidden = true;
+      const same = res.light.bytes.length === res.strong.bytes.length;
+      meta.innerHTML = `${fmtBytes(f.size)} · ${r.pages} page${r.pages === 1 ? "" : "s"} · ${r.images ? `${r.images} picture${r.images === 1 ? "" : "s"}${r.skipped ? ` (${r.skipped} in a compact scan format, left as is)` : ""}` : "no pictures"} · fonts ${fmtBytes(r.fonts)}`;
+      if (same) { const n = document.createElement("p"); n.className = "hint"; n.innerHTML = r.images && r.skipped === r.images ? "The pictures in this PDF are already in compact scan formats, so the levels give the same result. <b>Extreme</b> can still shrink it by rebuilding each page as an image." : "This PDF is mostly text and fonts, so every level gives the same result: there are no pictures to compress. What you get is a lossless clean-up of the file's structure."; card.insertBefore(n, prev); }
+      chosen = "balanced"; picks[idx] = () => ({ name, blob: new Blob([res.balanced.bytes], { type: "application/pdf" }) });
+      draw(); tail.hidden = picks.filter(Boolean).length < 2;
+    } catch (e) { console.error(e); meta.innerHTML = `<span class="bad">${esc(e.message)}</span>`; card.querySelector(".bar").hidden = true; }
+
+    async function preview(k) {
+      prev.innerHTML = `<div class="status"><span class="spin"></span>Rendering page 1…</div>`;
+      try {
+        const { renderPdfPage } = await import("./pdftools.js");
+        const w = Math.min(1100, prev.clientWidth || 900);
+        const [a, b] = await Promise.all([renderPdfPage(bytes, 1, w * 1.5), renderPdfPage(res[k].bytes, 1, w * 1.5)]);
+        prev.replaceChildren(); compareView(prev, a, b, ["Original", LEVELS[k].label]);
+      } catch (e) { prev.textContent = ""; toast("Couldn't render a preview of this PDF"); }
+    }
   }
 }

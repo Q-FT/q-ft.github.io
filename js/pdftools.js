@@ -23,7 +23,7 @@ const qpdf = () => (qpdfP ||= new Promise((res, rej) => {
   s.onload = () => res(window.Module); s.onerror = () => { qpdfP = null; rej(new Error("Couldn't load the encryption engine")); };
   document.head.appendChild(s);
 }));
-async function runQpdf(bytes, args) {
+export async function runQpdf(bytes, args) {
   const create = await qpdf();
   const logs = [];
   const m = await create({ locateFile: () => `${QPDF}qpdf.wasm`, noInitialRun: true, print: (t) => logs.push(t), printErr: (t) => logs.push(t) });
@@ -441,13 +441,17 @@ function diffWords(a, b) {
   return out.reverse();
 }
 
+/** Page n of a PDF as a canvas (for previews). */
+export async function renderPdfPage(bytes, n, width) { const doc = await openJs(bytes); return (await renderPage(doc, Math.min(n, doc.numPages), width)).canvas; }
+
 /** Every page -> one JPEG page (used by Compress PDF "Extreme" and as a rescue). */
 export async function rasterize(bytes, dpi, q, onProgress = () => {}) {
   const { PDFDocument } = await pdfLib(); const js = await openJs(bytes), out = await PDFDocument.create();
   for (let p = 1; p <= js.numPages; p++) {
     onProgress(p / (js.numPages + 1));
     const vp = (await js.getPage(p)).getViewport({ scale: 1 }); const { canvas } = await renderPage(js, p, (vp.width * dpi) / 72);
-    const img = await out.embedJpg(new Uint8Array(await (await new Promise((r) => canvas.toBlob(r, "image/jpeg", q))).arrayBuffer()));
+    const { encodeJpeg } = await import("./codecs.js");
+    const img = await out.embedJpg(new Uint8Array(await (await encodeJpeg(canvas, q)).arrayBuffer()));
     out.addPage([vp.width, vp.height]).drawImage(img, { x: 0, y: 0, width: vp.width, height: vp.height });
   }
   return out.save({ useObjectStreams: true });

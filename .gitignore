@@ -1,2 +1,5 @@
 tests/person.jpg
 .DS_Store
+tests/samples/
+tests/text.pdf
+tests/photos.pdf

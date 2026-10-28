@@ -1,0 +1,27 @@
+<!DOCTYPE html><meta charset="utf-8"><script type="module">
+// Image quality report: size + PSNR + SSIM vs the original, for Q-FT output and for the plain browser encoder at the same size.
+import { compressImage } from "/js/images.js";
+const out = [], say = (s) => out.push(s);
+async function pixels(blob, w, h) { const b = await createImageBitmap(blob, { imageOrientation: "from-image" }); const c = Object.assign(document.createElement("canvas"), { width: w || b.width, height: h || b.height }); const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(b, 0, 0, c.width, c.height); return g.getImageData(0, 0, c.width, c.height); }
+function psnr(a, b) { let s = 0, n = 0; for (let i = 0; i < a.data.length; i += 4) for (let j = 0; j < 3; j++) { const d = a.data[i + j] - b.data[i + j]; s += d * d; n++; } const mse = s / n; return mse === 0 ? Infinity : 10 * Math.log10((255 * 255) / mse); }
+function ssim(a, b) { // mean SSIM on luma, 8x8 windows
+  const W = a.width, H = a.height, L = (d, i) => 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; let tot = 0, cnt = 0; const C1 = 6.5025, C2 = 58.5225;
+  for (let y = 0; y + 8 <= H; y += 8) for (let x = 0; x + 8 <= W; x += 8) { let ma = 0, mb = 0, va = 0, vb = 0, cv = 0; const pa = [], pb = [];
+    for (let yy = 0; yy < 8; yy++) for (let xx = 0; xx < 8; xx++) { const i = ((y + yy) * W + x + xx) * 4; pa.push(L(a.data, i)); pb.push(L(b.data, i)); }
+    for (let k = 0; k < 64; k++) { ma += pa[k]; mb += pb[k]; } ma /= 64; mb /= 64;
+    for (let k = 0; k < 64; k++) { va += (pa[k] - ma) ** 2; vb += (pb[k] - mb) ** 2; cv += (pa[k] - ma) * (pb[k] - mb); } va /= 63; vb /= 63; cv /= 63;
+    tot += ((2 * ma * mb + C1) * (2 * cv + C2)) / ((ma * ma + mb * mb + C1) * (va + vb + C2)); cnt++; }
+  return tot / cnt; }
+for (const n of ["photo.jpg", "portrait.jpg", "screenshot.png", "transparent.png"]) {
+  const blob = await (await fetch(`/tests/samples/${n}`)).blob(), f = new File([blob], n, { type: blob.type });
+  const orig = await pixels(blob);
+  for (const q of [82, 65]) {
+    const r = await compressImage(f, { format: "auto", quality: q }); const p = await pixels(r.blob, orig.width, orig.height);
+    // browser encoder at the same size, for reference (JPEG only)
+    let ref = "";
+    if (r.type === "image/jpeg" && !r.kept) { let lo = 0.05, hi = 1, best = null; for (let i = 0; i < 9; i++) { const m = (lo + hi) / 2, b = await new Promise((res) => r.canvas.toBlob(res, "image/jpeg", m)); if (b.size <= r.blob.size) { best = b; lo = m; } else hi = m; } if (best) { const bp = await pixels(best, orig.width, orig.height); ref = ` | browser JPEG at same size: PSNR ${psnr(orig, bp).toFixed(1)} SSIM ${ssim(orig, bp).toFixed(4)}`; } }
+    say(`${n} q${q}: ${blob.size} -> ${r.blob.size} (${Math.round((1 - r.blob.size / blob.size) * 100)}% smaller) as ${r.type}${r.kept ? " [original kept]" : ""} · PSNR ${psnr(orig, p).toFixed(1)} dB · SSIM ${ssim(orig, p).toFixed(4)}${ref}`);
+  }
+}
+await fetch("/log", { method: "POST", body: out.join("\n") });
+</script>

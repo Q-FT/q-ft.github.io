@@ -3,6 +3,7 @@
 // People cutouts use MODNet (Apache-2.0) through ONNX Runtime Web. Everything runs in the browser.
 import { $, esc, fmtBytes, baseName, extOf, dropzone, segmented, opt, jobRow, button, download, downloadZip, toast } from "./ui.js";
 import { session } from "./ort.js";
+import { encodeJpeg } from "./codecs.js";
 
 const MODNET = "models/modnet.onnx";
 const el = (tag, cls, html) => Object.assign(document.createElement(tag), cls ? { className: cls } : {}, html != null ? { innerHTML: html } : {});
@@ -74,7 +75,7 @@ function workspace(panel, { title = "Drop a photo here or click to choose", sub 
 function showCanvas(view, c, checker = false) { const w = el("div", `imgbox${checker ? " imgbox--alpha" : ""}`); w.append(c); view.replaceChildren(w); return w; }
 function saveButtons(ctx, getCanvas, { name, png = true, jpg = true }) {
   const btns = [];
-  if (jpg) btns.push(button("Download JPG", png ? "btn btn--ghost" : "btn btn--primary", async () => { const c = getCanvas(); const flat = canvas(c.width, c.height), g = flat.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(c, 0, 0); download(await toBlob(flat, "image/jpeg", 0.93), `${name}.jpg`); }));
+  if (jpg) btns.push(button("Download JPG", png ? "btn btn--ghost" : "btn btn--primary", async () => { const c = getCanvas(); const flat = canvas(c.width, c.height), g = flat.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(c, 0, 0); download(await encodeJpeg(flat, 90), `${name}.jpg`); }));
   if (png) btns.push(button("Download PNG", "btn btn--primary", async () => download(await toBlob(getCanvas(), "image/png"), `${name}.png`)));
   ctx.actions.append(...btns);
 }
@@ -357,7 +358,7 @@ const MODES = {
       if (st.tiled) { g.save(); g.translate(W / 2, H / 2); g.rotate(-Math.PI / 6); for (let y = -H; y < H; y += mark.height * 3) for (let x = -W; x < W; x += mark.width * 1.6) g.drawImage(mark, x, y); g.restore(); }
       else { const x = st.pos.includes("l") ? m : st.pos.includes("r") ? W - mark.width - m : (W - mark.width) / 2, y = st.pos.includes("t") ? m : st.pos.includes("b") ? H - mark.height - m : (H - mark.height) / 2; g.drawImage(mark, x, y); }
       const type = file.type === "image/png" ? "image/png" : "image/jpeg";
-      return { blob: await toBlob(c, type, 0.93), name: `${baseName(file.name)}_watermarked.${type === "image/png" ? "png" : "jpg"}` };
+      return { blob: type === "image/jpeg" ? await encodeJpeg(c, 90) : await toBlob(c, type), name: `${baseName(file.name)}_watermarked.${type === "image/png" ? "png" : "jpg"}` };
     },
   }),
 
@@ -382,7 +383,9 @@ const MODES = {
         if (ok) best = ok; else { const s = canvas(c.width * 0.8, c.height * 0.8), g = s.getContext("2d"); g.imageSmoothingQuality = "high"; g.drawImage(c, 0, 0, s.width, s.height); c = s; }
       }
       if (!best) throw new Error("Couldn't get it that small");
-      return { blob: best, name: `${baseName(file.name)}_${st.kb}kb.jpg`, note: `${c.width}×${c.height}` };
+      // the browser encoder found the size; MozJPEG gets better quality inside the same budget
+      let q = 0.95, moz = null; for (let i = 0; i < 6; i++) { const b = await encodeJpeg(c, Math.round(q * 100)); if (b.size <= target) { moz = b; break; } q -= 0.1; }
+      return { blob: moz || best, name: `${baseName(file.name)}_${st.kb}kb.jpg`, note: `${c.width}×${c.height}${moz ? ` · quality ${Math.round(q * 100)}` : ""}` };
     },
   }),
 };

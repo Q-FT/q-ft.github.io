@@ -1,0 +1,15 @@
+<!DOCTYPE html><meta charset="utf-8"><script type="module">
+// After compression: is all the text still there, and how close does each page look (PSNR)?
+import { compressPdf } from "/js/pdf.js"; import { renderPdfPage } from "/js/pdftools.js";
+const lib = await import("https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.min.mjs");
+lib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/pdf.worker.min.mjs";
+const text = async (b) => { const d = await lib.getDocument({ data: b.slice() }).promise; let t = ""; for (let p = 1; p <= d.numPages; p++) t += (await (await d.getPage(p)).getTextContent()).items.map((i) => i.str).join(" "); return t.replace(/\s+/g, " ").trim(); };
+const px = (c) => c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+const psnr = (a, b) => { let s = 0, n = 0; for (let i = 0; i < a.length; i += 4) for (let j = 0; j < 3; j++) { const d = a[i + j] - b[i + j]; s += d * d; n++; } return s ? 10 * Math.log10(65025 / (s / n)) : Infinity; };
+const out = [];
+for (const n of ["text.pdf", "photos.pdf"]) {
+  const b = new Uint8Array(await (await fetch(`/tests/${n}`)).arrayBuffer()), t0 = await text(b), r0 = px(await renderPdfPage(b, 1, 900));
+  for (const lv of ["light", "balanced", "strong", "extreme"]) { const o = (await compressPdf(b, lv)).bytes, t1 = await text(o); out.push(`${n} ${lv}: text identical=${t0 === t1} (${t0.length} chars) · page-1 PSNR ${psnr(r0, px(await renderPdfPage(o, 1, 900))).toFixed(1)} dB`); }
+}
+await fetch("/log", { method: "POST", body: out.join("\n") });
+</script>

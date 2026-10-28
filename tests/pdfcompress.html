@@ -1,0 +1,14 @@
+<!DOCTYPE html><meta charset="utf-8"><script type="module">
+// Compress test PDFs at every level; also show what takes the space inside each file.
+import { PDFDocument, PDFRawStream, PDFName } from "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.esm.min.js";
+import { compressPdf } from "/js/pdf.js";
+const out = [];
+for (const name of (new URLSearchParams(location.search).get("f") || "text.pdf,photos.pdf").split(",")) {
+  const bytes = new Uint8Array(await (await fetch(`/tests/${name}`)).arrayBuffer());
+  const doc = await PDFDocument.load(bytes); const kinds = {};
+  for (const [, o] of doc.context.enumerateIndirectObjects()) if (o instanceof PDFRawStream) { const d = o.dict, k = String(d.get(PDFName.of("Subtype")) || d.get(PDFName.of("Type")) || (d.get(PDFName.of("Length1")) || d.get(PDFName.of("Length2")) ? "font" : "content")); kinds[k] = (kinds[k] || 0) + o.getContents().length; }
+  out.push(`${name}: ${bytes.length} bytes, ${doc.getPageCount()} pages · streams ${JSON.stringify(kinds)}`);
+  for (const lv of ["light", "balanced", "strong", "extreme"]) { const r = await compressPdf(bytes, lv); out.push(`  ${lv}: ${r.bytes.length} (${Math.round((1 - r.bytes.length / bytes.length) * 100)}%) images ${r.changed}/${r.images}${r.smaller ? "" : " [kept original]"}`); }
+}
+await fetch("/log", { method: "POST", body: out.join("\n") });
+</script>

@@ -2,6 +2,13 @@
 // `soon: true` shows the tool as "Coming soon" (not clickable yet).
 const pdf = () => import("./pdftools.js"), img = () => import("./imagetools.js"), av = () => import("./mediatools.js");
 
+// Groups for the header menus
+export const MENUS = {
+  pdf: [["Organize", ["merge-pdf", "split-pdf", "organize-pdf", "remove-pages", "extract-pages", "rotate-pdf", "scan-to-pdf"]], ["Optimize & convert", ["pdf", "repair-pdf", "ocr-pdf", "jpg-to-pdf", "pdf-to-jpg", "pdf-to-markdown"]], ["Edit", ["edit-pdf", "sign-pdf", "page-numbers", "watermark-pdf", "crop-pdf", "pdf-forms"]], ["Security", ["protect-pdf", "unlock-pdf", "redact-pdf", "compare-pdf"]]],
+  image: [["AI", ["enhance", "remove-bg", "blur-bg", "face-cutout", "passport-photo"]], ["Edit", ["photo-editor", "crop-image", "blur-areas", "watermark-image", "photo-to-sketch", "vectorize"]], ["Optimize", ["images", "compress-to-size", "remove-metadata", "qr"]]],
+  av: [["Video", ["video", "compress-video", "convert-video", "merge-media", "resize-video", "rotate-video", "video-to-gif", "mute-video"]], ["Audio", ["audio", "convert-audio", "extract-audio", "adjust-volume", "denoise-audio", "change-speed"]]],
+};
+
 export const CATS = [["all", "All"], ["pdf", "PDF"], ["image", "Images"], ["av", "Audio & Video"], ["ai", "AI"], ["soon", "Coming soon"]];
 
 const P = (id, name, short, icon, extra = {}) => ({ id, cat: "pdf", name, short, icon, a: ["#f43f5e", "#fb923c"], load: pdf, ...extra });
