@@ -34,7 +34,7 @@ export function download(blob, name) {
 }
 
 /** Zip several {name, blob} and download them as one file. */
-export async function downloadZip(files, zipName) {
+export async function downloadZip(files, zipName, save = true) {
   const { zipSync } = await import("https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js");
   const entries = {};
   for (const f of files) {
@@ -42,7 +42,9 @@ export async function downloadZip(files, zipName) {
     while (entries[n]) n = `${baseName(f.name)} (${i++}).${extOf(f.name)}`;
     entries[n] = [new Uint8Array(await f.blob.arrayBuffer()), { level: 0 }]; // already-compressed media: store only
   }
-  download(new Blob([zipSync(entries)], { type: "application/zip" }), zipName);
+  const zip = new Blob([zipSync(entries)], { type: "application/zip" });
+  if (save) download(zip, zipName);
+  return zip;
 }
 
 let toastTimer;

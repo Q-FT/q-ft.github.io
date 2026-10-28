@@ -1,0 +1,20 @@
+<!DOCTYPE html><meta charset="utf-8"><body style="margin:0"><iframe id="f" style="width:1200px;height:900px;border:0"></iframe>
+<script type="module">
+// Open every tool page and report the ones that fail to mount or throw errors.
+import { TOOLS } from "../js/catalog.js";
+const f = document.getElementById("f"), out = [], sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+f.src = "../index.html"; await new Promise((r) => (f.onload = r)); await sleep(500);
+const w = f.contentWindow, errs = []; w.addEventListener("error", (e) => errs.push(e.message)); w.addEventListener("unhandledrejection", (e) => errs.push(String(e.reason)));
+const d = f.contentDocument;
+out.push(`home: featured=${d.querySelectorAll("#toolGrid .tcard").length} all=${d.querySelectorAll("#allGrid .mini").length} chips=${d.querySelectorAll("#cats .chip").length}`);
+d.querySelector("#toolSearch").value = "passport"; d.querySelector("#toolSearch").dispatchEvent(new Event("input"));
+out.push(`search passport: ${[...d.querySelectorAll("#allGrid .mini b")].map((b) => b.textContent).join(", ")}`);
+d.querySelector('[data-cat="soon"]').click(); out.push(`coming soon: ${d.querySelectorAll("#allGrid .mini--soon").length}`);
+for (const t of TOOLS.filter((x) => !x.soon)) {
+  errs.length = 0; w.location.hash = `#/${t.id}`;
+  let ok = false; for (let i = 0; i < 40; i++) { await sleep(100); const p = d.querySelector("#toolView .panel"); if (p && (p.querySelector(".drop") || p.querySelector(".qr"))) { ok = true; break; } if (p && /couldn't load/.test(p.textContent)) break; }
+  if (!ok || errs.length) out.push(`FAIL ${t.id}: ${ok ? "" : "no drop zone "} ${errs.join(" | ")}`);
+}
+out.push(`checked ${TOOLS.filter((x) => !x.soon).length} tools`);
+await fetch("/log", { method: "POST", body: out.join("\n") }); document.title = "done";
+</script>

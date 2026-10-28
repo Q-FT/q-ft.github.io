@@ -1,0 +1,101 @@
+<!DOCTYPE html><meta charset="utf-8"><body style="margin:0"><iframe id="f" style="width:1200px;height:900px;border:0"></iframe>
+<script type="module">
+// Functional checks for the toolbox pages: drive the real UI, capture downloads, inspect the files.
+// ?only=pdf,img,av
+import { PDFDocument, StandardFonts } from "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.esm.min.js";
+const only = (new URLSearchParams(location.search).get("only") || "pdf,img,av").split(","), sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const f = document.getElementById("f"), log = [], say = (m) => { log.push(m); console.log(m); };
+let doc, dl = [];
+async function open(id) {
+  f.src = `../index.html?t=${Date.now()}#/${id}`; await new Promise((r) => (f.onload = r));
+  for (let i = 0; i < 60 && !f.contentDocument.querySelector("#toolView .drop"); i++) await sleep(100);
+  doc = f.contentDocument; dl = [];
+  const W = f.contentWindow, orig = W.HTMLAnchorElement.prototype.click;
+  W.HTMLAnchorElement.prototype.click = function () { if (this.download) dl.push(fetch(this.href).then((r) => r.blob()).then((b) => ({ name: this.download, blob: b }))); else orig.call(this); };
+}
+const give = (files, k = 0) => { const inp = doc.querySelectorAll("#toolView input[type=file]")[k]; const dt = new DataTransfer(); files.forEach((x) => dt.items.add(x)); inp.files = dt.files; inp.dispatchEvent(new Event("change")); };
+const btn = (text) => [...doc.querySelectorAll("#toolView button")].find((b) => b.textContent.trim().startsWith(text));
+const seg = (text) => [...doc.querySelectorAll("#toolView .seg button")].find((b) => b.textContent.trim() === text)?.click();
+async function until(fn, ms = 120000, what = "") { const t = Date.now(); while (Date.now() - t < ms) { const v = fn(); if (v) return v; await sleep(200); } throw new Error(`timeout ${what}`); }
+const resultMeta = () => [...doc.querySelectorAll("#toolView .job__meta")].map((m) => m.textContent).filter((t) => /Ready|Done|smaller|optimized|removed|nothing/.test(t)).join(" | ");
+async function lastDownload() { await until(() => dl.length, 60000, "download"); return (await Promise.all(dl)).at(-1); }
+async function run(name, fn) { const t = Date.now(); try { say(`${name}: ${await fn()} (${((Date.now() - t) / 1000).toFixed(1)}s)`); } catch (e) { say(`FAIL ${name}: ${e.message}`); } }
+
+const pic = (w, h, type = "image/jpeg", q = 0.95, text = "Q-FT test") => { const c = Object.assign(document.createElement("canvas"), { width: w, height: h }), g = c.getContext("2d");
+  const gr = g.createLinearGradient(0, 0, w, h); gr.addColorStop(0, "#e53"); gr.addColorStop(1, "#38f"); g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 300; i++) { g.fillStyle = `hsl(${(i * 37) % 360} 70% 50%)`; g.beginPath(); g.arc((i * 97) % w, (i * 61) % h, 2 + (i % 9) * w / 400, 0, 7); g.fill(); }
+  g.fillStyle = "#fff"; g.fillRect(w * 0.05, h * 0.35, w * 0.9, h * 0.3); g.fillStyle = "#000"; g.font = `bold ${Math.round(h / 7)}px Arial`; g.fillText(text, w * 0.08, h * 0.55);
+  return new Promise((r) => c.toBlob((b) => r(new File([b], `pic.${type === "image/png" ? "png" : "jpg"}`, { type })), type, q)); };
+async function makePdf(pages = 3, name = "doc.pdf") { const p = await PDFDocument.create(), font = await p.embedFont(StandardFonts.Helvetica);
+  for (let i = 0; i < pages; i++) { const img = await p.embedJpg(await (await pic(1800, 1300)).arrayBuffer()); const pg = p.addPage([612, 792]); pg.drawImage(img, { x: 50, y: 300, width: 512, height: 370 }); pg.drawText(`Page ${i + 1} hello world`, { x: 50, y: 720, size: 20, font }); }
+  return new File([await p.save()], name, { type: "application/pdf" }); }
+const pdfPages = async (blob) => (await PDFDocument.load(await blob.arrayBuffer(), { ignoreEncryption: true })).getPageCount();
+function wav(sec, freq = 440, rate = 22050) { const n = sec * rate, b = new ArrayBuffer(44 + n * 2), v = new DataView(b); const w = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
+  w(0, "RIFF"); v.setUint32(4, 36 + n * 2, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) v.setInt16(44 + i * 2, Math.sin((i / rate) * 2 * Math.PI * freq) * 9000 + (Math.random() - 0.5) * 1500, true); return new File([b], `tone${freq}.wav`, { type: "audio/wav" }); }
+
+if (only.includes("pdf")) {
+  const p3 = await makePdf(3), p2 = await makePdf(2, "b.pdf"); const PDFONLY = new URLSearchParams(location.search).get("pdf");
+  if (!PDFONLY) {
+  await run("merge-pdf", async () => { await open("merge-pdf"); give([p3, p2, await pic(800, 600)]); await sleep(300); btn("Merge").click(); await until(resultMeta, 60000); const b = await (async () => { btn("Download").click(); return lastDownload(); })(); return `${resultMeta()} · reopened ${await pdfPages(b.blob)} pages`; });
+  await run("split-pdf", async () => { await open("split-pdf"); give([p3]); await sleep(800); btn("Split PDF").click(); await until(resultMeta, 60000); const z = await lastDownload(); return `${resultMeta()} · ${z.name} ${z.blob.size}B`; });
+  await run("organize-pdf", async () => { await open("organize-pdf"); give([p3]); await until(() => doc.querySelectorAll(".pg canvas").length === 3, 30000, "thumbs"); doc.querySelectorAll(".pg")[0].querySelectorAll("button")[1].click(); doc.querySelectorAll(".pg")[1].querySelector("button").click(); btn("Save PDF").click(); await until(resultMeta, 30000); btn("Download").click(); const b = await lastDownload(); const d = await PDFDocument.load(await b.blob.arrayBuffer()); return `${resultMeta()} · pages ${d.getPageCount()}, first rotation ${d.getPage(0).getRotation().angle}`; });
+  await run("page-numbers", async () => { await open("page-numbers"); give([p3]); await sleep(500); seg("Page 1 of 9"); btn("Add page numbers").click(); await until(resultMeta, 30000); return resultMeta(); });
+  await run("watermark-pdf", async () => { await open("watermark-pdf"); give([p3]); await sleep(500); doc.querySelector("#toolView .check input").click(); btn("Add watermark").click(); await until(resultMeta, 30000); return resultMeta(); });
+  await run("protect+unlock", async () => {
+    await open("protect-pdf"); give([p3]); await sleep(500); const pw = doc.querySelectorAll("#toolView input[type=password]"); pw[0].value = pw[1].value = "secret123"; btn("Protect PDF").click(); await until(resultMeta, 60000); btn("Download").click(); const enc = await lastDownload();
+    let locked = false; try { await PDFDocument.load(await enc.blob.arrayBuffer()); } catch { locked = true; }
+    await open("unlock-pdf"); give([new File([enc.blob], "locked.pdf", { type: "application/pdf" })]); await sleep(500); doc.querySelector("#toolView input[type=password]").value = "secret123"; btn("Unlock PDF").click(); await until(resultMeta, 60000); btn("Download").click(); const dec = await lastDownload();
+    return `encrypted=${locked} · unlocked pages ${await pdfPages(dec.blob)}`;
+  });
+  await run("pdf-to-jpg", async () => { await open("pdf-to-jpg"); give([p3]); await sleep(1500); doc.querySelector("#toolView input[type=text]").value = "2"; doc.querySelector("#toolView input[type=text]").dispatchEvent(new Event("input")); btn("Convert to images").click(); await until(resultMeta, 30000); btn("Download").click(); const b = await lastDownload(); const bmp = await createImageBitmap(b.blob); return `${b.name} ${bmp.width}x${bmp.height}`; });
+  await run("jpg-to-pdf", async () => { await open("jpg-to-pdf"); give([await pic(1200, 800), await pic(600, 900)]); await sleep(300); btn("Convert to PDF").click(); await until(resultMeta, 30000); return resultMeta(); });
+  await run("pdf-to-markdown", async () => { await open("pdf-to-markdown"); give([p3]); await sleep(300); btn("Convert to Markdown").click(); await until(resultMeta, 30000); return doc.querySelector(".mdout").value.slice(0, 60).replace(/\n/g, "⏎"); });
+  await run("compare-pdf", async () => { await open("compare-pdf"); give([p3], 0); give([p2], 1); await sleep(300); btn("Compare").click(); await until(() => doc.querySelector(".diffout").textContent, 30000); return doc.querySelector(".diffout p").textContent; });
+  await run("compress levels", async () => { const { compressPdf } = await import("/js/pdf.js"); const b = new Uint8Array(await p3.arrayBuffer()); const r = {}; for (const k of ["light", "balanced", "strong", "extreme"]) r[k] = (await compressPdf(b, k)).bytes.length; return `orig ${b.length} · ${Object.entries(r).map(([k, v]) => `${k} ${v}`).join(" · ")}`; });
+  }
+  await run("ocr-pdf", async () => { await open("ocr-pdf"); const c = Object.assign(document.createElement("canvas"), { width: 1400, height: 400 }), g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, 1400, 400); g.fillStyle = "#111"; g.font = "64px Georgia"; g.fillText("Quick File Tools makes", 60, 150); g.fillText("scanned pages searchable.", 60, 260);
+    give([await new Promise((r) => c.toBlob((b) => r(new File([b], "scan.png", { type: "image/png" }))))]); await sleep(300); btn("Recognize text").click(); await until(() => !doc.querySelector(".mdout").hidden, 240000, "ocr"); return `text: "${doc.querySelector(".mdout").value.trim().slice(0, 50)}"`; });
+}
+if (only.includes("img")) {
+  await run("compress-to-size", async () => { await open("compress-to-size"); seg("50 KB"); give([await pic(3000, 2000, "image/png")]); await until(resultMeta, 60000); return resultMeta(); });
+  await run("remove-metadata", async () => {
+    const base = new Uint8Array(await (await pic(400, 300)).arrayBuffer());
+    // hand-made EXIF block with a GPS pointer (tag 0x8825)
+    const tiff = [0x4d, 0x4d, 0, 42, 0, 0, 0, 8, 0, 1, 0x88, 0x25, 0, 4, 0, 0, 0, 1, 0, 0, 0, 26, 0, 0, 0, 0];
+    const app1 = [0xff, 0xe1, 0, 2 + 6 + tiff.length, 0x45, 0x78, 0x69, 0x66, 0, 0, ...tiff];
+    const withExif = new File([base.slice(0, 2), new Uint8Array(app1), base.slice(2)], "gps.jpg", { type: "image/jpeg" });
+    await open("remove-metadata"); give([withExif]); await until(resultMeta, 30000); btn("Download").click(); const b = await lastDownload(); const bytes = new Uint8Array(await b.blob.arrayBuffer());
+    return `${resultMeta()} · Exif left: ${new TextDecoder().decode(bytes.slice(0, 200)).includes("Exif")}`;
+  });
+  await run("watermark-image", async () => { await open("watermark-image"); give([await pic(1200, 800)]); await until(resultMeta, 30000); return resultMeta(); });
+  await run("photo-editor", async () => { await open("photo-editor"); give([await pic(1200, 800)]); await until(() => doc.querySelector(".imgbox canvas"), 20000); seg("Sepia"); btn("⟳").click(); await sleep(400); btn("Download JPG").click(); const b = await lastDownload(); const bmp = await createImageBitmap(b.blob); return `rotated output ${bmp.width}x${bmp.height}`; });
+  await run("photo-to-sketch", async () => { await open("photo-to-sketch"); give([await pic(900, 600)]); await until(() => doc.querySelector(".imgbox canvas"), 20000); return "rendered"; });
+  await run("vectorize", async () => { await open("vectorize"); give([await pic(300, 200, "image/png")]); await until(() => doc.querySelector(".svgbox svg"), 60000); return `svg paths ${doc.querySelectorAll(".svgbox path").length}`; });
+  await run("blur-areas", async () => { await open("blur-areas"); give([await pic(900, 600)]); await until(() => doc.querySelector(".imgbox canvas"), 20000); return "rendered"; });
+  await run("remove-bg (MODNet)", async () => {
+    const r = await fetch("/tests/person.jpg"); if (!r.ok) return "skipped (no tests/person.jpg)";
+    await open("remove-bg"); give([new File([await r.blob()], "person.jpg", { type: "image/jpeg" })]); await until(() => doc.querySelector(".imgbox canvas"), 180000, "matte");
+    const c = doc.querySelector(".imgbox canvas"), d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data; let clear = 0; for (let i = 3; i < d.length; i += 4) if (d[i] < 10) clear++;
+    return `${c.width}x${c.height}, transparent ${Math.round((clear / (d.length / 4)) * 100)}%`;
+  });
+}
+if (only.includes("av")) {
+  const a1 = wav(3, 440), a2 = wav(2, 660);
+  await run("convert-audio", async () => { await open("convert-audio"); give([a1]); await sleep(200); btn("Convert").click(); await until(resultMeta, 180000); return resultMeta(); });
+  await run("merge-media (audio)", async () => { await open("merge-media"); give([a1, a2]); await sleep(200); btn("Merge").click(); await until(resultMeta, 120000); return resultMeta(); });
+  await run("change-speed (audio)", async () => { await open("change-speed"); give([a1]); await sleep(200); btn("Change speed").click(); await until(resultMeta, 120000); return resultMeta(); });
+  await run("adjust-volume", async () => { await open("adjust-volume"); give([a1]); await sleep(200); seg("Normalize"); btn("Apply").click(); await until(resultMeta, 120000); return resultMeta(); });
+  await run("denoise-audio", async () => { await open("denoise-audio"); give([a1]); await sleep(200); btn("Remove noise").click(); await until(resultMeta, 120000); return resultMeta(); });
+  // make a test video with ffmpeg itself
+  const { FFmpeg } = await import("../vendor/ffmpeg/index.js"); const { toBlobURL } = await import("../vendor/ffmpeg-util/index.js");
+  const ff = new FFmpeg(), base = "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm/";
+  await ff.load({ coreURL: await toBlobURL(base + "ffmpeg-core.js", "text/javascript"), wasmURL: await toBlobURL(base + "ffmpeg-core.wasm", "application/wasm") });
+  await ff.exec(["-f", "lavfi", "-i", "testsrc=duration=3:size=320x240:rate=25", "-f", "lavfi", "-i", "sine=frequency=440:duration=3", "-c:v", "libx264", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest", "a.mp4"]);
+  await ff.exec(["-f", "lavfi", "-i", "testsrc2=duration=2:size=640x360:rate=30", "-c:v", "libx264", "-pix_fmt", "yuv420p", "b.mp4"]);
+  const v1 = new File([await ff.readFile("a.mp4")], "a.mp4", { type: "video/mp4" }), v2 = new File([await ff.readFile("b.mp4")], "b.mp4", { type: "video/mp4" }); ff.terminate();
+  for (const [id, cta, files, pick] of [["compress-video", "Compress video", [v1]], ["convert-video", "Convert", [v1], "MKV"], ["merge-media", "Merge", [v1, v2]], ["rotate-video", "Rotate", [v1]], ["resize-video", "Resize", [v1], "Vertical 9:16"], ["video-to-gif", "Make GIF", [v1]], ["extract-audio", "Extract audio", [v1], "M4A"], ["mute-video", "Remove sound", [v1]], ["change-speed", "Change speed", [v1]]])
+    await run(id, async () => { await open(id); give(files); await sleep(200); if (pick) seg(pick); btn(cta).click(); await until(resultMeta, 240000, id); return resultMeta(); });
+}
+await fetch("/log", { method: "POST", body: log.join("\n") }); document.title = "done";
+</script>

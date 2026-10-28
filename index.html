@@ -33,7 +33,7 @@
     <div class="wrap top__in">
       <a class="brand" href="#/" aria-label="Q-FT home"><img src="assets/logo-mark.svg" alt="" width="36" height="36" /><span><b>Q-FT</b><small>Quick File Tools</small></span></a>
       <nav class="nav" aria-label="Main">
-        <a href="#/enhance">Enhance</a><a href="#/pdf">PDF</a><a href="#/images">Images</a><a href="#/audio">Audio</a><a href="#/video">Video</a><a href="#/qr">QR</a><a href="#pricing">Pricing</a>
+        <a href="#/enhance">Enhance</a><a href="#/pdf">PDF</a><a href="#/images">Images</a><a href="#/video">Video</a><a href="#/qr">QR</a><a href="#all">All tools</a><a href="#pricing">Pricing</a>
       </nav>
       <button class="credits" id="creditsBadge" type="button" title="AI enhancements left"><span class="credits__dot"></span><span id="creditsText">10 free</span></button>
     </div>
@@ -49,13 +49,23 @@
           <p class="eyebrow">Private by design · runs on your device</p>
           <h1><span class="rot" id="rot"><span class="on">Enhance</span><span>Compress</span><span>Convert</span><span>Trim</span></span> any file.<br />No subscription.</h1>
           <p class="lead">Fast, high quality file tools that run right in your browser. Nothing is uploaded, nothing to install.</p>
-          <div class="hero__ctas"><a class="btn btn--primary btn--lg" href="#/enhance">Enhance a photo, free</a><a class="btn btn--ghost btn--lg" href="#tools">Explore tools</a></div>
+          <div class="hero__ctas"><a class="btn btn--primary btn--lg" href="#/enhance">Enhance a photo, free</a><a class="btn btn--ghost btn--lg" href="#all">Explore 50+ tools</a></div>
           <ul class="trust"><li>No uploads</li><li>No sign-up</li><li>No watermark</li></ul>
         </div>
       </section>
 
       <section class="wrap section" id="tools">
         <div class="bento" id="toolGrid"></div>
+      </section>
+
+      <section class="wrap section" id="all">
+        <h2>Every tool, one place.</h2>
+        <p class="sub">PDF, images, audio and video. Search or browse.</p>
+        <div class="finder">
+          <label class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="toolSearch" type="search" placeholder="Search 50+ tools…" aria-label="Search tools" /></label>
+          <div class="chips" id="cats"></div>
+        </div>
+        <div class="allgrid" id="allGrid"></div>
       </section>
 
       <section class="wrap section how">
@@ -105,7 +115,7 @@
       <div><a class="brand" href="#/"><img src="assets/logo-mark.svg" alt="" width="28" height="28" /><span><b>Q-FT</b><small>Quick File Tools</small></span></a><p class="muted">Made by Freeman T.</p></div>
       <div class="muted small">
         <a href="terms.html">Terms</a> · <a href="privacy.html">Privacy</a> · <a href="#credits" id="creditsLink">Open-source credits</a>
-        <p id="ossCredits" hidden>AI model: Real-ESRGAN (BSD-3-Clause, X. Wang et al.). Runtime: ONNX Runtime Web (MIT). Video &amp; audio: ffmpeg.wasm (MIT) with FFmpeg (LGPL/GPL). PDF: pdf-lib (MIT), pako (MIT). Zip: fflate (MIT).</p>
+        <p id="ossCredits" hidden>AI model: Real-ESRGAN (BSD-3-Clause, X. Wang et al.). Runtime: ONNX Runtime Web (MIT). Video &amp; audio: ffmpeg.wasm (MIT) with FFmpeg (LGPL/GPL). PDF: pdf-lib (MIT), pako (MIT), PDF.js (Apache-2.0), qpdf (Apache-2.0). OCR: Tesseract.js (Apache-2.0). Portrait cutouts: MODNet (Apache-2.0). Vectorizer: imagetracerjs (Unlicense). QR: qr-code-styling (MIT). Zip: fflate (MIT).</p>
       </div>
     </div>
   </footer>

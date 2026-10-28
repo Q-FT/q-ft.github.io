@@ -5,8 +5,8 @@ import { FFmpeg } from "../vendor/ffmpeg/index.js";
 import { toBlobURL } from "../vendor/ffmpeg-util/index.js";
 import { $, esc, fmtBytes, fmtTime, parseTime, baseName, extOf, dropzone, segmented, opt, button, download, toast } from "./ui.js";
 
-let ffP = null;
-function engine(onStatus) {
+let ffP = null; // shared with mediatools.js
+export function engine(onStatus) {
   if (ffP) return ffP;
   ffP = (async () => {
     const ff = new FFmpeg();
@@ -33,7 +33,7 @@ async function blobUrlWithProgress(url, type, onP) {
 }
 
 /** Run ffmpeg, reporting progress from its "time=" log lines. Returns the output file bytes. */
-async function ffrun(ff, args, outName, duration, onProgress) {
+export async function ffrun(ff, args, outName, duration, onProgress) {
   const logs = [];
   const onLog = ({ message }) => {
     logs.push(message); if (logs.length > 60) logs.shift();

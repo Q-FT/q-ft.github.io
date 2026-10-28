@@ -1,0 +1,23 @@
+<!DOCTYPE html><meta charset="utf-8"><body style="margin:0"><iframe id="f" style="width:1300px;height:1100px;border:0"></iframe>
+<script type="module">
+// Load a PDF in Edit PDF, add a text box, a white-out and a highlight, then save: for a screenshot + sanity check.
+import { PDFDocument, StandardFonts } from "https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.esm.min.js";
+const f = document.getElementById("f"), sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const p = await PDFDocument.create(), font = await p.embedFont(StandardFonts.Helvetica), pg = p.addPage([612, 792]);
+pg.drawText("Invoice #2026-114", { x: 60, y: 720, size: 28, font }); for (let i = 0; i < 14; i++) pg.drawText(`Line ${i + 1}: consulting services, 2 hours ......... $${(i + 1) * 40}`, { x: 60, y: 660 - i * 30, size: 13, font });
+f.src = "../index.html#/edit-pdf"; await new Promise((r) => (f.onload = r)); await sleep(800);
+const d = f.contentDocument, inp = d.querySelector("#toolView input[type=file]"), dt = new DataTransfer(); dt.items.add(new File([await p.save()], "invoice.pdf", { type: "application/pdf" })); inp.files = dt.files; inp.dispatchEvent(new Event("change"));
+for (let i = 0; i < 60 && !d.querySelector(".stage__page canvas"); i++) await sleep(150);
+const W = f.contentWindow, page = d.querySelector(".stage__page"), r = d.querySelector(".stage__page canvas").getBoundingClientRect();
+const pt = (type, x, y) => page.dispatchEvent(new W.PointerEvent(type, { bubbles: true, clientX: r.left + x * r.width, clientY: r.top + y * r.height, pointerId: 1 }));
+const tool = (t) => [...d.querySelectorAll(".edbar button")].find((b) => b.textContent.includes(t)).click();
+tool("Highlight"); pt("pointerdown", 0.09, 0.215); pt("pointermove", 0.6, 0.245); pt("pointerup", 0.6, 0.245);
+tool("White-out"); pt("pointerdown", 0.62, 0.29); pt("pointermove", 0.8, 0.32); pt("pointerup", 0.8, 0.32);
+tool("White-out"); tool("Text"); pt("pointerdown", 0.55, 0.06);
+await sleep(300); const t = d.querySelector(".it__text"); t.textContent = "PAID ✓ Oct 28"; t.dispatchEvent(new Event("input"));
+[...d.querySelectorAll("#toolView button")].find((b) => b.textContent.startsWith("Save PDF")).click();
+for (let i = 0; i < 50 && !d.querySelector("#toolView .job__meta .ok"); i++) await sleep(150);
+d.title = "done"; document.title = `saved=${!!d.querySelector("#toolView .job__meta .ok")}`;
+f.contentWindow.scrollTo(0, 250);
+await fetch("/log", { method: "POST", body: document.title + " items=" + d.querySelectorAll(".it").length });
+</script>
