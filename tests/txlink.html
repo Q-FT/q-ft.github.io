@@ -1,0 +1,11 @@
+<!DOCTYPE html><meta charset="utf-8"><body style="margin:0"><iframe id="f" style="width:1200px;height:900px;border:0"></iframe>
+<script type="module">
+const f = document.getElementById("f"), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), out = [];
+f.src = `../index.html?t=${Date.now()}#/transcribe`; await new Promise((r) => (f.onload = r)); await sleep(800);
+const d = f.contentDocument; [...d.querySelectorAll("#toolView .seg button")].find((b) => b.textContent === "Paste a link").click();
+const inp = d.querySelector(".linkbox input"), get = [...d.querySelectorAll(".linkbox button")][0];
+inp.value = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"; get.click(); await sleep(400); out.push(`YouTube: "${d.querySelector("#toast").textContent}"`);
+inp.value = location.origin + "/tests/samples/speech-en.m4a"; get.click(); await sleep(1500); out.push(`direct link: "${d.querySelector("#toolView .job__meta")?.textContent}"`);
+inp.value = location.origin + "/index.html"; get.click(); await sleep(1500); out.push(`web page link: "${d.querySelector("#toast").textContent}"`);
+await fetch("/log", { method: "POST", body: out.join("\n") });
+</script>

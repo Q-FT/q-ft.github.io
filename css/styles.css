@@ -180,7 +180,7 @@ a.mini:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var
 .seg button { border: 0; background: none; color: var(--muted); font: 500 .88rem var(--body); padding: 7px 14px; border-radius: 9px; cursor: pointer; transition: color .2s, background .2s; white-space: nowrap; }
 .seg button:hover { color: var(--ink); }
 .seg button.on { background: rgba(255, 255, 255, .1); color: #fff; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); }
-select, input[type=number], input[type=text], input[type=url], input[type=email], input[type=tel], textarea { background: rgba(0, 0, 0, .3); color: var(--ink); border: 1px solid var(--line-2); border-radius: 11px; padding: 10px 12px; font: 500 .95rem var(--body); text-transform: none; letter-spacing: 0; transition: border-color .2s, box-shadow .2s; width: 100%; }
+select, input[type=number], input[type=text], input[type=url], input[type=email], input[type=tel], input[type=search], textarea { background: rgba(0, 0, 0, .3); color: var(--ink); border: 1px solid var(--line-2); border-radius: 11px; padding: 10px 12px; font: 500 .95rem var(--body); text-transform: none; letter-spacing: 0; transition: border-color .2s, box-shadow .2s; width: 100%; }
 select:focus, input:focus, textarea:focus { outline: none; border-color: var(--violet); box-shadow: 0 0 0 3px rgba(139, 92, 246, .25); }
 textarea { resize: vertical; min-height: 84px; }
 input[type=range] { accent-color: var(--violet); width: 160px; }
@@ -353,3 +353,23 @@ del { background: rgba(251, 113, 133, .2); color: #fecdd3; padding: 1px 3px; bor
 body.noscroll { overflow: hidden; }
 @media (max-width: 880px) { .burger { display: flex; } .credits { margin-left: auto; } }
 @media (max-width: 1100px) { .nav > a[href="#pricing"] { display: none; } }
+
+/* ---------- transcription ---------- */
+.linkbox, .recbox { margin-top: 16px; }
+.linkbox { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; }
+.linkbox .hint { grid-column: 1 / -1; margin: 0; }
+.recbox { display: flex; gap: 18px; align-items: center; padding: 22px; border: 1.5px dashed rgba(255, 255, 255, .18); border-radius: 20px; }
+.rec { width: 72px; height: 72px; flex: none; border-radius: 50%; border: 0; cursor: pointer; background: var(--grad); display: grid; place-items: center; box-shadow: 0 14px 34px -12px rgba(139, 92, 246, .9); transition: transform .2s var(--ease); }
+.rec span { width: 24px; height: 24px; border-radius: 50%; background: #fff; transition: border-radius .2s, width .2s, height .2s; }
+.rec.on { background: linear-gradient(135deg, #ef4444, #f97316); animation: pulse 1.6s ease-in-out infinite; } .rec.on span { width: 22px; height: 22px; border-radius: 5px; }
+.tx { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 18px; margin-top: 18px; align-items: start; }
+@media (max-width: 860px) { .tx { grid-template-columns: minmax(0, 1fr); } }
+.tx__media { position: sticky; top: 84px; } .tx__media audio { width: 100%; }
+.tx__tools { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; } .tx__tools input { max-width: 260px; }
+.tx__list { max-height: 60vh; overflow: auto; border: 1px solid var(--line); border-radius: 16px; background: rgba(0, 0, 0, .22); padding: 8px; }
+.tline { display: grid; grid-template-columns: auto 1fr; gap: 10px; padding: 7px 8px; border-radius: 10px; transition: background .2s, opacity .2s; animation: rise .3s var(--ease); }
+.tline.now { background: rgba(139, 92, 246, .18); } .tline.dim { opacity: .25; }
+.tline__t { border: 0; background: rgba(255, 255, 255, .06); color: #c4b5fd; font: 600 .76rem ui-monospace, Menlo, monospace; padding: 3px 7px; border-radius: 7px; cursor: pointer; height: fit-content; }
+.tline__t:hover { background: rgba(139, 92, 246, .35); color: #fff; }
+.tline__x { outline: none; line-height: 1.55; border-radius: 6px; } .tline__x:focus { background: rgba(255, 255, 255, .05); box-shadow: 0 0 0 1px var(--line-2); }
+.tx__export { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }

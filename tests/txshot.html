@@ -1,0 +1,10 @@
+<!DOCTYPE html><meta charset="utf-8"><body style="margin:0"><iframe id="f" style="width:100vw;height:100vh;border:0"></iframe>
+<script type="module">
+const f = document.getElementById("f"), sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+f.src = `../index.html?t=${Date.now()}#/transcribe`; await new Promise((r) => (f.onload = r)); await sleep(800);
+const d = f.contentDocument, blob = await (await fetch("samples/speech-en.m4a")).blob(), dt = new DataTransfer();
+dt.items.add(new File([blob], "team-meeting.m4a", { type: "audio/mp4" })); const inp = d.querySelector("#toolView .drop input"); inp.files = dt.files; inp.dispatchEvent(new Event("change"));
+[...d.querySelectorAll("#toolView button")].find((b) => b.textContent === "Transcribe").click();
+for (let i = 0; i < 300 && d.querySelector(".tx__export")?.hidden !== false; i++) await sleep(500);
+d.querySelectorAll(".reveal").forEach((e) => e.classList.add("in")); f.contentWindow.scrollTo(0, d.querySelector(".tx").getBoundingClientRect().top + f.contentWindow.scrollY - 120); document.title = "ready";
+</script>

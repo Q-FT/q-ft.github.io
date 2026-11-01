@@ -6,7 +6,7 @@ const pdf = () => import("./pdftools.js"), img = () => import("./imagetools.js")
 export const MENUS = {
   pdf: [["Organize", ["merge-pdf", "split-pdf", "organize-pdf", "remove-pages", "extract-pages", "rotate-pdf", "scan-to-pdf"]], ["Optimize & convert", ["pdf", "repair-pdf", "ocr-pdf", "jpg-to-pdf", "pdf-to-jpg", "pdf-to-markdown"]], ["Edit", ["edit-pdf", "sign-pdf", "page-numbers", "watermark-pdf", "crop-pdf", "pdf-forms"]], ["Security", ["protect-pdf", "unlock-pdf", "redact-pdf", "compare-pdf"]]],
   image: [["AI", ["enhance", "remove-bg", "blur-bg", "face-cutout", "passport-photo"]], ["Edit", ["photo-editor", "crop-image", "blur-areas", "watermark-image", "photo-to-sketch", "vectorize"]], ["Optimize", ["images", "compress-to-size", "remove-metadata", "qr"]]],
-  av: [["Video", ["video", "compress-video", "convert-video", "merge-media", "resize-video", "rotate-video", "video-to-gif", "mute-video"]], ["Audio", ["audio", "convert-audio", "extract-audio", "adjust-volume", "denoise-audio", "change-speed"]]],
+  av: [["AI", ["transcribe"]], ["Video", ["video", "compress-video", "convert-video", "merge-media", "resize-video", "rotate-video", "video-to-gif", "mute-video"]], ["Audio", ["audio", "convert-audio", "extract-audio", "adjust-volume", "denoise-audio", "change-speed"]]],
 };
 
 export const CATS = [["all", "All"], ["pdf", "PDF"], ["image", "Images"], ["av", "Audio & Video"], ["ai", "AI"], ["soon", "Coming soon"]];
@@ -67,6 +67,7 @@ export const TOOLS = [
   IM("compress-to-size", "Compress to Exact Size", "Hit 50 KB, 100 KB or any limit for upload forms.", "compress"),
 
   // Audio & video
+  { id: "transcribe", cat: "av", ai: true, icon: "transcript", name: "Transcribe Audio & Video", short: "Speech to text in 90+ languages. Word, PDF, TXT, SRT subtitles.", pill: "New", a: ["#8b5cf6", "#22d3ee"], load: () => import("./transcribe.js") },
   AV("convert-video", "Convert Video", "MP4, WebM, MOV, MKV or GIF.", "convert"),
   AV("compress-video", "Compress Video", "Smaller files for WhatsApp, email and uploads.", "compress"),
   AV("convert-audio", "Convert Audio", "MP3, WAV, M4A, FLAC or OGG.", "convert"),
@@ -92,6 +93,10 @@ export const TOOLS = [
   SOON("retouch", "ai", "Remove Objects", "Erase people and things from photos.", "eraser"),
   SOON("remove-bg-pro", "ai", "Background Remover Pro", "Products, pets and objects, studio quality.", "scissors"),
   SOON("ai-summarize", "ai", "AI PDF Summarizer", "The key points of any document.", "doc"),
+  SOON("transcript-summary", "ai", "Meeting & Lecture Summaries", "Key points and action items from a transcript.", "transcript"),
+  SOON("speaker-labels", "ai", "Speaker Labels", "Who said what: Speaker 1, Speaker 2 in your transcript.", "face"),
+  SOON("burn-captions", "av", "Burn-in Captions", "Subtitles drawn right onto your video, styled.", "video"),
+  SOON("text-to-speech", "ai", "Text to Speech", "Natural voices that read your text aloud.", "volume"),
   SOON("translate-pdf", "ai", "Translate PDF", "Keep the layout, change the language.", "translate"),
   SOON("pdf-to-word", "pdf", "PDF to Word", "Editable DOCX that keeps the layout.", "word"),
   SOON("pdf-to-powerpoint", "pdf", "PDF to PowerPoint", "Slides you can edit.", "ppt"),
@@ -143,6 +148,7 @@ const S = {
   speed: '<path d="M12 21a9 9 0 1 1 9-9"/><path d="M12 12l5-4"/><circle cx="12" cy="12" r="1.2"/>',
   volume: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>',
   gif: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M10 10H8a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h2v-2M13 10v4M16 14v-4h3M16 12h2"/>',
+  transcript: '<path d="M4 5h16M4 10h10M4 15h7"/><path d="M17 13a2 2 0 0 1 2 2v1a2 2 0 0 1-4 0v-1a2 2 0 0 1 2-2zM14 17.5a3 3 0 0 0 6 0M17 20.5V22"/>',
   music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
   mute: '<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M17 9l5 6M22 9l-5 6"/>',
   card: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M12 13l1.2 1.2L12 16l-1.2-1.8z"/>',

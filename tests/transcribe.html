@@ -1,0 +1,34 @@
+<!DOCTYPE html><meta charset="utf-8"><body style="margin:0"><iframe id="f" style="width:1200px;height:900px;border:0"></iframe>
+<script type="module">
+// Transcribe the sample clips through the real UI and check every export.
+const f = document.getElementById("f"), sleep = (ms) => new Promise((r) => setTimeout(r, ms)), out = [];
+const { unzipSync, strFromU8 } = await import("https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js");
+const { PDFDocument } = await import("https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.esm.min.js");
+for (const [file, langLabel, task] of (new URLSearchParams(location.search).get("en") ? [["speech-en.m4a", null, null]] : [["speech-en.m4a", null, null], ["speech-fr.wav", "French", null], ["speech-fr.wav", "French", "Translate to English"]])) {
+  f.src = `../index.html?t=${Date.now()}#/transcribe`; await new Promise((r) => (f.onload = r));
+  for (let i = 0; i < 60 && !f.contentDocument.querySelector("#toolView .drop"); i++) await sleep(100);
+  const d = f.contentDocument, W = f.contentWindow, dl = [];
+  W.HTMLAnchorElement.prototype.click = function () { if (this.download) dl.push(fetch(this.href).then((r) => r.blob()).then((b) => ({ name: this.download, blob: b }))); };
+  const blob = await (await fetch(`samples/${file}`)).blob(); const dt = new DataTransfer(); dt.items.add(new File([blob], file, { type: blob.type || "audio/wav" }));
+  const inp = d.querySelector("#toolView .drop input"); inp.files = dt.files; inp.dispatchEvent(new Event("change"));
+  if (langLabel) { const s = d.querySelector("#toolView select"); s.value = [...s.options].find((o) => o.text === langLabel).value; s.dispatchEvent(new Event("change")); }
+  if (task) [...d.querySelectorAll("#toolView .seg button")].find((b) => b.textContent === task).click();
+  const t0 = Date.now(); [...d.querySelectorAll("#toolView button")].find((b) => b.textContent === "Transcribe").click();
+  for (let i = 0; i < 900 && d.querySelector(".tx__export")?.hidden !== false; i++) { await sleep(500); if (/fail|error|couldn't/i.test(d.querySelector("#toast")?.textContent || "") && d.querySelector("#toast").classList.contains("show")) break; }
+  const text = [...d.querySelectorAll(".tline__x")].map((x) => x.textContent).join(" ");
+  out.push(`${file}${task ? " → English" : ""}: ${((Date.now() - t0) / 1000).toFixed(0)}s · ${d.querySelectorAll(".tline").length} segments · "${text}" · ${d.querySelector("[data-stats]")?.textContent} ${d.querySelector("#toast")?.textContent || ""}`);
+  if (file === "speech-en.m4a") {
+    for (const b of [...d.querySelectorAll("[data-dl] button")].filter((b) => b.textContent !== "Copy text")) b.click();
+    for (let i = 0; i < 40 && dl.length < 7; i++) await sleep(250);
+    const files = await Promise.all(dl);
+    for (const { name, blob: b } of files) {
+      let info = `${b.size} B`;
+      if (name.endsWith(".docx")) { const z = unzipSync(new Uint8Array(await b.arrayBuffer())); info += ` · docx parts ${Object.keys(z).length} · ${/quick brown fox/i.test(strFromU8(z["word/document.xml"])) ? "text OK" : "TEXT MISSING"}`; }
+      else if (name.endsWith(".pdf")) { const p = await PDFDocument.load(await b.arrayBuffer()); info += ` · ${p.getPageCount()} page(s)`; }
+      else info += ` · ${(await b.text()).slice(0, 70).replace(/\n/g, "⏎")}`;
+      out.push(`  ${name}: ${info}`);
+    }
+  }
+}
+await fetch("/log", { method: "POST", body: out.join("\n") });
+</script>
