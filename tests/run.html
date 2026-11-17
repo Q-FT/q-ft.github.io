@@ -52,8 +52,9 @@ try {
     const bytes = await pdf.save({ useObjectStreams: false });
     const doc = await open("#/pdf"); await waitFor(() => doc.querySelector("#toolView input[type=file]"), 10000, "pdf ui");
     give(doc, [new File([bytes], "report.pdf", { type: "application/pdf" })]);
-    await waitFor(() => doc.querySelector("#toolView .job__meta .ok, #toolView .job__meta .bad") || /optimized/.test(metaText(doc)), 120000, "pdf");
-    say(`PDF: ${metaText(doc)}`);
+    const t0 = Date.now();
+    await waitFor(() => doc.querySelectorAll("#toolView .lvl__size").length >= 3 || doc.querySelector("#toolView .job__meta .bad"), 120000, "pdf");
+    say(`PDF ${((Date.now() - t0) / 1000).toFixed(1)}s: ${metaText(doc)} · ${[...doc.querySelectorAll("#toolView .lvl")].map((t) => t.innerText.replace(/\s+/g, " ").trim()).join(" | ")}`);
     // the compressed file must still open and keep its text
     const mod = await import("/js/pdf.js");
     const out = await mod.compressPdf(new Uint8Array(bytes), "balanced");

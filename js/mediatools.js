@@ -54,14 +54,17 @@ function tool(panel, { accept, multiple = false, title, sub, cta, options, plan,
       for (const n of names) ff.deleteFile(n).catch(() => {});
       if (!bytes) throw new Error("That didn't work with this file. Try another format.");
       ff.deleteFile(`out.${used.ext}`).catch(() => {});
-      const blob = new Blob([bytes], { type: MIME[used.ext] || "application/octet-stream" }), name = `${baseName(files[0].name)}_${used.suffix || "q-ft"}.${used.ext}`;
+      let blob = new Blob([bytes], { type: MIME[used.ext] || "application/octet-stream" }), name = `${baseName(files[0].name)}_${used.suffix || "q-ft"}.${used.ext}`;
       const row = jobRow(name, "✓"); row.progress(null);
-      row.meta(`<span class="ok">Done</span> · ${fmtBytes(big)} → <b>${fmtBytes(blob.size)}</b>`);
+      if (used.shrink && blob.size >= big) { // already compact: re-encoding would only make it bigger
+        blob = files[0]; name = files[0].name;
+        row.meta(`<span class="ok">Already compact</span> · ${fmtBytes(big)}: a smaller version would lose quality. Try “Smallest” or a lower resolution.`);
+      } else row.meta(`<span class="ok">Done</span> · ${fmtBytes(big)} → <b>${fmtBytes(blob.size)}</b>`);
       row.actions(button("Download", "btn btn--primary btn--sm", () => download(blob, name)));
       const url = URL.createObjectURL(blob), kind = used.ext === "gif" ? "img" : MIME[used.ext]?.startsWith("video") ? "video" : "audio";
       const preview = Object.assign(document.createElement(kind), kind === "img" ? { src: url, className: "gifout" } : { src: url, controls: true, className: "player" });
       res.append(row.el, preview);
-    } catch (e) { console.error(e); toast(e.message || "Something went wrong", 5000); }
+    } catch (e) { console.error(e); res.replaceChildren(el("p", "bad", esc(e.message || "Something went wrong"))); toast(e.message || "Something went wrong", 5000); }
     finally { set(""); go.disabled = false; }
   });
 }
@@ -86,7 +89,7 @@ const MODES = {
     note: "Compression re-encodes the video, so it takes a while for long clips. 720p Balanced is a great choice for phones.",
     plan: ({ names: [n], info: [i], st }) => {
       const vf = st.h && i.video && Math.min(i.video.w, i.video.h) > st.h ? ["-vf", i.video.w >= i.video.h ? `scale=-2:${st.h}` : `scale=${st.h}:-2`] : [];
-      return { ext: "mp4", suffix: "compressed", label: "Compressing…", args: ["-i", n, "-map", "0:v:0", "-map", "0:a?", ...vf, ...X264(st.q), "-c:a", "aac", "-b:a", "128k", "out.mp4"] };
+      return { ext: "mp4", suffix: "compressed", shrink: true, label: "Compressing…", args: ["-i", n, "-map", "0:v:0", "-map", "0:a?", ...vf, ...X264(st.q), "-c:a", "aac", "-b:a", "128k", "out.mp4"] };
     },
   }),
   "convert-audio": (p) => tool(p, {
@@ -129,8 +132,9 @@ const MODES = {
     options: (o, st) => { st.v = "6"; o.append(opt("Volume", segmented([["-6", "Quieter"], ["3", "+3 dB"], ["6", "+6 dB"], ["10", "+10 dB"], ["norm", "Normalize"]], "6", (v) => (st.v = v)).el)); },
     note: "Normalize evens out loud and quiet parts to a standard level, like streaming services do.",
     plan: ({ files: [f], names: [n], info: [i], st }) => {
-      // loudnorm works at 192 kHz internally: bring it back to 44.1 kHz
-      const af = st.v === "norm" ? "loudnorm=I=-16:TP=-1.5:LRA=11,aresample=44100" : `volume=${st.v}dB,alimiter=limit=0.97`;
+      // loudnorm works at 192 kHz internally: bring it back to 44.1 kHz, and say which channel layouts are fine
+      // (without that, ffmpeg can't pick one and fails on every file)
+      const af = st.v === "norm" ? "loudnorm=I=-16:TP=-1.5:LRA=11,aresample=44100,aformat=channel_layouts=mono|stereo" : `volume=${st.v}dB,alimiter=limit=0.97`;
       if (!i.audio) throw new Error("This file has no sound.");
       if (!i.video) { const ext = AENC[extOf(f.name)] ? extOf(f.name) : "mp3"; return { ext, suffix: "volume", label: "Adjusting volume…", args: ["-i", n, "-af", af, ...AENC[ext], `out.${ext}`] }; }
       const ext = ["mp4", "mov", "mkv"].includes(extOf(f.name)) ? extOf(f.name) : "mp4";

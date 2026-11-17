@@ -7,7 +7,7 @@ About 50 tools, all running in the browser. The full list (and the "coming soon"
 | Area | Module | Engine |
 |---|---|---|
 | AI Photo Enhancer | `js/enhance.js` | Real-ESRGAN `realesr-general-x4v3` (BSD-3) as ONNX in `models/`, ONNX Runtime Web (WebGPU or WebAssembly), tiled 2×/4×. 10 free per device, then packs. |
-| Compress PDF | `js/pdf.js` | pdf-lib + pako: recompresses pictures (RGB, gray, CMYK, indexed, 1–8 bit), deflates raw streams; "Extreme" flattens pages to JPEG. |
+| Compress PDF | `js/pdf.js`, `js/pdfimage.js` (+ `pdfimage-worker.js`) | pdf-lib + MozJPEG + qpdf: recompresses pictures (RGB, gray, CMYK, indexed, 1–8 bit) on a pool of workers, every level from one decode (Recommended and Strong first, then Light); "Extreme" flattens pages to JPEG. |
 | PDF toolbox (merge, split, organize, remove/extract/rotate pages, scan, repair, OCR, JPG↔PDF, Markdown, edit, sign, page numbers, watermark, crop, forms, protect/unlock, redact, compare) | `js/pdftools.js` | pdf-lib, PDF.js 4.10 (rendering, text), qpdf-wasm (AES-256), Tesseract.js 5 (OCR). |
 | Images (editor, crop, background remover, blur background, face cutout, passport photo, sketch, vectorizer, blur & pixelate, watermark, remove location, compress to size) | `js/imagetools.js`, `js/images.js` | Canvas; MODNet (Apache-2.0, `models/modnet.onnx`) for people cutouts; imagetracerjs for SVG. |
 | Audio & video (trim, convert, compress, merge, speed, volume, rotate, resize, denoise, GIF, extract audio, mute) | `js/media.js`, `js/mediatools.js` | ffmpeg.wasm (`vendor/ffmpeg`, core from jsDelivr). |
